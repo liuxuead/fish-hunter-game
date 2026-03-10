@@ -40,7 +40,10 @@ class FishHunterGame {
     this.reflections = [];
     
     this.shootAudio = null;
+    this.bubbleAudio = null;
     this.audioContext = null;
+    
+    this.soundEnabled = localStorage.getItem('fishHunterSound') === 'true';
     
     this.touches = [];
     
@@ -53,12 +56,41 @@ class FishHunterGame {
     
     this.loadResources().then(() => {
       document.getElementById('loading').style.display = 'none';
+      this.createSoundToggle();
       this.startBallTimer();
       this.startBreathingAnimation();
       this.initReflections();
       this.bindEvents();
       this.runAnimationLoop();
     });
+  }
+  
+  createSoundToggle() {
+    const toggle = document.createElement('div');
+    toggle.style.position = 'fixed';
+    toggle.style.top = '10px';
+    toggle.style.right = '10px';
+    toggle.style.width = '80px';
+    toggle.style.height = '30px';
+    toggle.style.backgroundColor = this.soundEnabled ? '#4CAF50' : '#ccc';
+    toggle.style.borderRadius = '15px';
+    toggle.style.cursor = 'pointer';
+    toggle.style.zIndex = '1000';
+    toggle.style.display = 'flex';
+    toggle.style.alignItems = 'center';
+    toggle.style.justifyContent = 'center';
+    toggle.style.color = 'white';
+    toggle.style.fontSize = '12px';
+    toggle.style.fontFamily = 'Arial, sans-serif';
+    toggle.style.fontWeight = 'bold';
+    toggle.textContent = this.soundEnabled ? '音效: 开' : '音效: 关';
+    toggle.onclick = () => {
+      this.soundEnabled = !this.soundEnabled;
+      localStorage.setItem('fishHunterSound', this.soundEnabled.toString());
+      toggle.style.backgroundColor = this.soundEnabled ? '#4CAF50' : '#ccc';
+      toggle.textContent = this.soundEnabled ? '音效: 开' : '音效: 关';
+    };
+    document.body.appendChild(toggle);
   }
   
   resizeCanvas() {
@@ -94,6 +126,13 @@ class FishHunterGame {
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
+  }
+  
+  playSound(audio) {
+    if (this.soundEnabled && audio) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.log('音频播放失败:', e));
+    }
   }
   
   startBallTimer() {
@@ -174,10 +213,7 @@ class FishHunterGame {
           speed: (1 + Math.random() * 2) * 0.2
         });
         
-        if (this.bubbleAudio) {
-          this.bubbleAudio.currentTime = 0;
-          this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
-        }
+        this.playSound(this.bubbleAudio);
         
         if (!this.animationRunning) {
           this.animationRunning = true;
@@ -196,6 +232,12 @@ class FishHunterGame {
     this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    
+    this.canvas.addEventListener('click', () => {
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    });
   }
   
   handleTouchStart(e) {
@@ -290,10 +332,7 @@ class FishHunterGame {
       this.score = 9;
     }
     
-    if (this.shootAudio) {
-      this.shootAudio.currentTime = 0;
-      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
-    }
+    this.playSound(this.shootAudio);
     
     const centerX = this.canvasWidth / 2;
     const centerY = this.originY;
@@ -336,10 +375,7 @@ class FishHunterGame {
   addAnimation(startX, startY, endX, endY, dx, dy) {
     if (!this.fishImage) return;
     
-    if (this.shootAudio) {
-      this.shootAudio.currentTime = 0;
-      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
-    }
+    this.playSound(this.shootAudio);
     
     const animation = {
       startX,
