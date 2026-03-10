@@ -91,6 +91,9 @@ class FishHunterGame {
     
     this.shootAudio = new Audio('images/fashe.mp3');
     this.shootAudio.preload = 'auto';
+    
+    this.bubbleAudio = new Audio('images/qipao.mp3');
+    this.bubbleAudio.preload = 'auto';
   }
   
   startBallTimer() {
@@ -170,6 +173,11 @@ class FishHunterGame {
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
           speed: (1 + Math.random() * 2) * 0.2
         });
+        
+        if (this.bubbleAudio) {
+          this.bubbleAudio.currentTime = 0;
+          this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
+        }
         
         if (!this.animationRunning) {
           this.animationRunning = true;
