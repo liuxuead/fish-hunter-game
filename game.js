@@ -40,25 +40,7 @@ class FishHunterGame {
     this.reflections = [];
     
     this.shootAudio = null;
-    this.bubbleAudio = null;
     this.audioContext = null;
-    
-    // 计数系统
-    this.fishKilled = 0;         // 普通鱼击杀数
-    this.redBallKilled = 0;      // 红色圆球击杀数
-    this.redBallRequired = 3;    // 触发双指发射需要的红色圆球数
-    
-    // 发射速度控制
-    this.shootCooldown = 500;     // 初始冷却时间（毫秒）
-    this.lastShootTime = 0;       // 上次发射时间
-    this.cooldownReduction = 50;  // 每级减少的冷却时间
-    this.fishPerLevel = 5;        // 每杀多少鱼提升一级速度
-    
-    // 日志系统
-    this.logs = [];
-    
-    // 双指触摸记录
-    this.touchStartPositions = [];
     
     this.touches = [];
     
@@ -75,39 +57,8 @@ class FishHunterGame {
       this.startBreathingAnimation();
       this.initReflections();
       this.bindEvents();
-      this.startAnimation();
+      this.runAnimationLoop();
     });
-  }
-  
-  // 日志记录函数
-  log(message, data = {}) {
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      message,
-      data
-    };
-    this.logs.push(logEntry);
-    console.log(`[LOG] ${message}`, data);
-    
-    // 限制日志数量
-    if (this.logs.length > 100) {
-      this.logs.shift();
-    }
-  }
-  
-  // 导出日志
-  exportLogs() {
-    const logData = JSON.stringify(this.logs, null, 2);
-    const blob = new Blob([logData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'touch-logs.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    this.log('Logs exported');
   }
   
   resizeCanvas() {
@@ -132,11 +83,8 @@ class FishHunterGame {
     
     try {
       this.fishImage = await loadImage('images/yucha.png');
-      console.log('鱼叉图片加载成功');
       this.ballImage = await loadImage('images/feiyu.png');
-      console.log('飞鱼图片加载成功');
       this.chuanImage = await loadImage('images/chuan.png');
-      console.log('船图片加载成功');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -181,9 +129,7 @@ class FishHunterGame {
   }
   
   addBall() {
-    // 30% 概率生成红色圆球（稀有一些）
-    const isRedBall = Math.random() > 0.7;
-    const radius = isRedBall ? 15 * 1.5 : 15; // 红色圆球大50%
+    const radius = 15;
     const minDistance = 110;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -225,8 +171,7 @@ class FishHunterGame {
           radius,
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: (1 + Math.random() * 2) * 0.2,
-          isRedBall: isRedBall
+          speed: (1 + Math.random() * 2) * 0.2
         });
         
         if (this.bubbleAudio) {
@@ -259,27 +204,11 @@ class FishHunterGame {
     this.isDrawing = true;
     this.isTwoFinger = e.touches.length === 2;
     
-    this.log('Touch start', {
-      touches: e.touches.length,
-      isTwoFinger: this.isTwoFinger,
-      touchPositions: e.touches.map(touch => ({ x: touch.clientX, y: touch.clientY }))
-    });
-    
-    if (this.isTwoFinger) {
-      // 记录双指起始位置（包含identifier）
-      this.touchStartPositions = e.touches.map(touch => ({
-        x: touch.clientX,
-        y: touch.clientY,
-        identifier: touch.identifier
-      }));
-      this.log('Two-finger touch start', { startPositions: this.touchStartPositions });
-    } else {
+    if (!this.isTwoFinger) {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
-      console.log('单指触摸开始，记录起始位置:', { startX: this.startX, startY: this.startY });
       this.findClosestImage(this.startX, this.startY);
-      this.log('Single-finger touch start', { startX: this.startX, startY: this.startY });
     }
   }
   
@@ -296,17 +225,9 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
-    this.log('Touch end', {
-      touches: e.touches.length,
-      changedTouches: e.changedTouches.length,
-      isTwoFinger: this.isTwoFinger
-    });
-    
     if (this.isTwoFinger) {
-      this.log('Two-finger touch end', { startPositions: this.touchStartPositions });
       this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
-      this.touchStartPositions = [];
       return;
     }
     
@@ -314,8 +235,6 @@ class FishHunterGame {
     const endX = touch.clientX;
     const endY = touch.clientY;
     
-    this.log('Single-finger touch end', { startX: this.startX, startY: this.startY, endX, endY });
-    console.log('调用 processSwipe:', { startX: this.startX, startY: this.startY, endX, endY });
     this.processSwipe(endX, endY);
   }
   
@@ -339,48 +258,34 @@ class FishHunterGame {
   }
   
   processSwipe(endX, endY) {
-    console.log('进入 processSwipe:', { endX, endY, startX: this.startX, startY: this.startY });
-    
     const dx = endX - this.startX;
     const dy = endY - this.startY;
-    
-    console.log('计算出的 dx, dy:', { dx, dy });
     
     this.breathingImageIndex = -1;
     
     if (dx === 0 && dy === 0) {
-      console.log('没有滑动，返回');
       return;
     }
     
     const distance = Math.sqrt(dx * dx + dy * dy);
     const isHorizontalSwipe = dx > 0 && Math.abs(dy) < 120 && distance > 120;
     
-    console.log('滑动距离和方向:', { distance, isHorizontalSwipe });
-    
     if (isHorizontalSwipe) {
-      console.log('水平向右滑动，重置弹药');
       this.score = 9;
       return;
     }
     
     if (this.score <= 0) {
-      console.log('弹药不足，返回');
       return;
     }
     
-    console.log('准备发射，当前分数:', this.score);
     this.score--;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
-    console.log('计算出的 extendPoint:', extendPoint);
-    
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
-    this.log('Two-finger swipe triggered');
-    
     if (this.score < 9) {
       this.score = 9;
     }
@@ -389,9 +294,6 @@ class FishHunterGame {
       this.shootAudio.currentTime = 0;
       this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
     }
-    
-    // 重置红色圆球计数
-    this.redBallKilled = 0;
     
     const centerX = this.canvasWidth / 2;
     const centerY = this.originY;
@@ -432,12 +334,7 @@ class FishHunterGame {
   }
   
   addAnimation(startX, startY, endX, endY, dx, dy) {
-    console.log('添加动画:', { startX, startY, endX, endY, dx, dy, fishImage: !!this.fishImage });
-    
-    if (!this.fishImage) {
-      console.warn('鱼叉图片未加载，无法添加动画');
-      return;
-    }
+    if (!this.fishImage) return;
     
     if (this.shootAudio) {
       this.shootAudio.currentTime = 0;
@@ -455,12 +352,10 @@ class FishHunterGame {
     };
     
     this.animations.push(animation);
-    console.log('动画添加成功，当前动画数量:', this.animations.length);
     
     if (!this.animationRunning) {
       this.animationRunning = true;
       this.runAnimationLoop();
-      console.log('启动动画循环');
     }
   }
   
@@ -572,18 +467,6 @@ class FishHunterGame {
       this.ctx.restore();
     }
     
-    // 显示击杀计数
-    this.ctx.save();
-    this.ctx.font = '16px Arial';
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
-    this.ctx.fillStyle = '#ff4444';
-    this.ctx.fillText(`红球: ${this.redBallKilled}/${this.redBallRequired}`, 10, 60);
-    this.ctx.fillStyle = '#ffff00';
-    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 90);
-    this.ctx.restore();
-    
     if (this.chuanImage) {
       const chuanWidth = 360;
       const chuanHeight = 240;
@@ -608,14 +491,6 @@ class FishHunterGame {
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
         this.ctx.rotate(ball.angle || 0);
-        
-        // 红色圆球特殊处理
-        if (ball.isRedBall) {
-          this.ctx.globalAlpha = 0.8;
-          this.ctx.shadowColor = '#ff0000';
-          this.ctx.shadowBlur = 10;
-        }
-        
         this.ctx.drawImage(
           this.ballImage,
           -ballSize / 2,
@@ -651,14 +526,6 @@ class FishHunterGame {
       }
       
       if (closestBall && minDistance < 20) {
-        if (closestBall.isRedBall) {
-          this.redBallKilled++;
-        } else {
-          this.fishKilled++;
-          // 每杀一定数量的鱼提升发射速度
-          const level = Math.floor(this.fishKilled / this.fishPerLevel);
-          this.shootCooldown = Math.max(100, 500 - level * this.cooldownReduction);
-        }
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
       }
       
@@ -707,5 +574,5 @@ class FishHunterGame {
 }
 
 window.onload = () => {
-  window.game = new FishHunterGame();
+  new FishHunterGame();
 };
