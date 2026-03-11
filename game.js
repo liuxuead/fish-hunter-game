@@ -339,16 +339,19 @@ class FishHunterGame {
       return;
     }
     
+    // 获取Y坐标的辅助函数（兼容不同格式的触摸对象）
+    const getY = (touch) => touch.y || touch.clientY;
+    
     // 计算起始和结束的平均Y坐标
-    const startAvgY = (startTouches[0].y + startTouches[1].y) / 2;
+    const startAvgY = (getY(startTouches[0]) + getY(startTouches[1])) / 2;
     
     // 计算结束位置的平均Y坐标
     let endAvgY;
     if (endTouches.length === 2) {
-      endAvgY = (endTouches[0].y + endTouches[1].y) / 2;
+      endAvgY = (getY(endTouches[0]) + getY(endTouches[1])) / 2;
     } else {
       // 如果只抬起了一个手指，使用另一个手指的位置
-      endAvgY = endTouches[0].y;
+      endAvgY = getY(endTouches[0]);
     }
     
     // 计算滑动距离
