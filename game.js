@@ -132,8 +132,11 @@ class FishHunterGame {
     
     try {
       this.fishImage = await loadImage('images/yucha.png');
+      console.log('鱼叉图片加载成功');
       this.ballImage = await loadImage('images/feiyu.png');
+      console.log('飞鱼图片加载成功');
       this.chuanImage = await loadImage('images/chuan.png');
+      console.log('船图片加载成功');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -270,10 +273,11 @@ class FishHunterGame {
         identifier: touch.identifier
       }));
       this.log('Two-finger touch start', { startPositions: this.touchStartPositions });
-    } else if (this.touches.length === 1) {
+    } else {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
+      console.log('单指触摸开始，记录起始位置:', { startX: this.startX, startY: this.startY });
       this.findClosestImage(this.startX, this.startY);
       this.log('Single-finger touch start', { startX: this.startX, startY: this.startY });
     }
@@ -282,12 +286,9 @@ class FishHunterGame {
   handleTouchMove(e) {
     e.preventDefault();
     if (!this.isDrawing) return;
-    // 只在单指触摸时更新位置
-    if (!this.isTwoFinger && e.touches.length === 1) {
-      const touch = e.touches[0];
-      this.currentX = touch.clientX;
-      this.currentY = touch.clientY;
-    }
+    const touch = e.touches[0];
+    this.currentX = touch.clientX;
+    this.currentY = touch.clientY;
   }
   
   handleTouchEnd(e) {
@@ -314,6 +315,7 @@ class FishHunterGame {
     const endY = touch.clientY;
     
     this.log('Single-finger touch end', { startX: this.startX, startY: this.startY, endX, endY });
+    console.log('调用 processSwipe:', { startX: this.startX, startY: this.startY, endX, endY });
     this.processSwipe(endX, endY);
   }
   
@@ -337,40 +339,43 @@ class FishHunterGame {
   }
   
   processSwipe(endX, endY) {
+    console.log('进入 processSwipe:', { endX, endY, startX: this.startX, startY: this.startY });
+    
     const dx = endX - this.startX;
     const dy = endY - this.startY;
+    
+    console.log('计算出的 dx, dy:', { dx, dy });
     
     this.breathingImageIndex = -1;
     
     if (dx === 0 && dy === 0) {
+      console.log('没有滑动，返回');
       return;
     }
     
     const distance = Math.sqrt(dx * dx + dy * dy);
     const isHorizontalSwipe = dx > 0 && Math.abs(dy) < 120 && distance > 120;
     
+    console.log('滑动距离和方向:', { distance, isHorizontalSwipe });
+    
     if (isHorizontalSwipe) {
+      console.log('水平向右滑动，重置弹药');
       this.score = 9;
       return;
     }
     
     if (this.score <= 0) {
+      console.log('弹药不足，返回');
       return;
     }
     
-    // 检查冷却时间
-    const now = Date.now();
-    if (now - this.lastShootTime < this.shootCooldown) {
-      return;
-    }
-    
+    console.log('准备发射，当前分数:', this.score);
     this.score--;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
-    this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
+    console.log('计算出的 extendPoint:', extendPoint);
     
-    // 更新发射时间
-    this.lastShootTime = now;
+    this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
@@ -427,7 +432,12 @@ class FishHunterGame {
   }
   
   addAnimation(startX, startY, endX, endY, dx, dy) {
-    if (!this.fishImage) return;
+    console.log('添加动画:', { startX, startY, endX, endY, dx, dy, fishImage: !!this.fishImage });
+    
+    if (!this.fishImage) {
+      console.warn('鱼叉图片未加载，无法添加动画');
+      return;
+    }
     
     if (this.shootAudio) {
       this.shootAudio.currentTime = 0;
@@ -445,10 +455,12 @@ class FishHunterGame {
     };
     
     this.animations.push(animation);
+    console.log('动画添加成功，当前动画数量:', this.animations.length);
     
     if (!this.animationRunning) {
       this.animationRunning = true;
       this.runAnimationLoop();
+      console.log('启动动画循环');
     }
   }
   
