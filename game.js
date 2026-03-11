@@ -54,6 +54,9 @@ class FishHunterGame {
     this.cooldownReduction = 50;  // 每级减少的冷却时间
     this.fishPerLevel = 5;        // 每杀多少鱼提升一级速度
     
+    // 日志系统
+    this.logs = [];
+    
     // 双指触摸记录
     this.touchStartPositions = [];
     
@@ -72,8 +75,39 @@ class FishHunterGame {
       this.startBreathingAnimation();
       this.initReflections();
       this.bindEvents();
-      this.runAnimationLoop();
+      this.startAnimation();
     });
+  }
+  
+  // 日志记录函数
+  log(message, data = {}) {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      message,
+      data
+    };
+    this.logs.push(logEntry);
+    console.log(`[LOG] ${message}`, data);
+    
+    // 限制日志数量
+    if (this.logs.length > 100) {
+      this.logs.shift();
+    }
+  }
+  
+  // 导出日志
+  exportLogs() {
+    const logData = JSON.stringify(this.logs, null, 2);
+    const blob = new Blob([logData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'touch-logs.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.log('Logs exported');
   }
   
   resizeCanvas() {
@@ -222,6 +256,12 @@ class FishHunterGame {
     this.isDrawing = true;
     this.isTwoFinger = e.touches.length === 2;
     
+    this.log('Touch start', {
+      touches: e.touches.length,
+      isTwoFinger: this.isTwoFinger,
+      touchPositions: e.touches.map(touch => ({ x: touch.clientX, y: touch.clientY }))
+    });
+    
     if (this.isTwoFinger) {
       // 记录双指起始位置（包含identifier）
       this.touchStartPositions = e.touches.map(touch => ({
@@ -229,11 +269,13 @@ class FishHunterGame {
         y: touch.clientY,
         identifier: touch.identifier
       }));
+      this.log('Two-finger touch start', { startPositions: this.touchStartPositions });
     } else if (this.touches.length === 1) {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
       this.findClosestImage(this.startX, this.startY);
+      this.log('Single-finger touch start', { startX: this.startX, startY: this.startY });
     }
   }
   
@@ -253,12 +295,15 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
+    this.log('Touch end', {
+      touches: e.touches.length,
+      changedTouches: e.changedTouches.length,
+      isTwoFinger: this.isTwoFinger
+    });
+    
     if (this.isTwoFinger) {
-      // 获取抬起的手指位置
-      const endTouches = Array.from(e.changedTouches);
-      if (endTouches.length > 0) {
-        this.handleTwoFingerSwipe(this.touchStartPositions, endTouches);
-      }
+      this.log('Two-finger touch end', { startPositions: this.touchStartPositions });
+      this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
       this.touchStartPositions = [];
       return;
@@ -268,6 +313,7 @@ class FishHunterGame {
     const endX = touch.clientX;
     const endY = touch.clientY;
     
+    this.log('Single-finger touch end', { startX: this.startX, startY: this.startY, endX, endY });
     this.processSwipe(endX, endY);
   }
   
@@ -333,34 +379,8 @@ class FishHunterGame {
     this.lastShootTime = now;
   }
   
-  handleTwoFingerSwipe(startTouches, endTouches) {
-    // 确保有足够的触摸点
-    if (startTouches.length < 2 || endTouches.length < 1) {
-      return;
-    }
-    
-    // 获取Y坐标的辅助函数（兼容不同格式的触摸对象）
-    const getY = (touch) => touch.y || touch.clientY;
-    
-    // 计算起始和结束的平均Y坐标
-    const startAvgY = (getY(startTouches[0]) + getY(startTouches[1])) / 2;
-    
-    // 计算结束位置的平均Y坐标
-    let endAvgY;
-    if (endTouches.length === 2) {
-      endAvgY = (getY(endTouches[0]) + getY(endTouches[1])) / 2;
-    } else {
-      // 如果只抬起了一个手指，使用另一个手指的位置
-      endAvgY = getY(endTouches[0]);
-    }
-    
-    // 计算滑动距离
-    const swipeDistance = startAvgY - endAvgY;
-    
-    // 检查是否向上滑动（至少10像素）
-    if (swipeDistance <= 10) {
-      return; // 不是向上滑动，不触发
-    }
+  handleTwoFingerSwipe() {
+    this.log('Two-finger swipe triggered');
     
     if (this.score < 9) {
       this.score = 9;
@@ -681,5 +701,5 @@ class FishHunterGame {
 }
 
 window.onload = () => {
-  new FishHunterGame();
+  window.game = new FishHunterGame();
 };
