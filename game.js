@@ -240,9 +240,12 @@ class FishHunterGame {
   handleTouchMove(e) {
     e.preventDefault();
     if (!this.isDrawing) return;
-    const touch = e.touches[0];
-    this.currentX = touch.clientX;
-    this.currentY = touch.clientY;
+    // 只在单指触摸时更新位置
+    if (!this.isTwoFinger && e.touches.length === 1) {
+      const touch = e.touches[0];
+      this.currentX = touch.clientX;
+      this.currentY = touch.clientY;
+    }
   }
   
   handleTouchEnd(e) {
