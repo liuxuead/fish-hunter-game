@@ -331,8 +331,8 @@ class FishHunterGame {
     // 计算滑动距离
     const swipeDistance = startAvgY - currentAvgY;
     
-    // 检查是否向上滑动（至少20像素）
-    if (swipeDistance <= 20) {
+    // 检查是否向上滑动（至少10像素，更宽松）
+    if (swipeDistance <= 10) {
       return;
     }
     
