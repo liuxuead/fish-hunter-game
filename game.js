@@ -44,6 +44,9 @@ class FishHunterGame {
     
     this.touches = [];
     
+    this.fishKilled = 0;
+    this.redBallKilled = 0;
+    
     this.init();
   }
   
@@ -481,6 +484,15 @@ class FishHunterGame {
       );
     }
     
+    this.ctx.save();
+    this.ctx.font = '16px Arial';
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
+    this.ctx.fillStyle = '#ff4444';
+    this.ctx.fillText(`红球: ${this.redBallKilled}`, 10, 60);
+    this.ctx.restore();
+    
     this.balls = this.balls.filter(ball => {
       ball.y += ball.speed;
       
@@ -536,6 +548,12 @@ class FishHunterGame {
       
       if (closestBall && minDistance < 20) {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
+        
+        if (closestBall.isRedBall) {
+          this.redBallKilled++;
+        } else {
+          this.fishKilled++;
+        }
       }
       
       this.ctx.save();
