@@ -44,23 +44,6 @@ class FishHunterGame {
     
     this.touches = [];
     
-    // 计数系统
-    this.fishKilled = 0;
-    this.redBallKilled = 0;
-    this.redBallRequired = 3;
-    
-    // 发射速度控制
-    this.shootCooldown = 500;
-    this.lastShootTime = 0;
-    this.cooldownReduction = 50;
-    this.fishPerLevel = 5;
-    
-    // 日志系统
-    this.logs = [];
-    
-    // 双指触摸记录
-    this.touchStartPositions = [];
-    
     this.init();
   }
   
@@ -146,8 +129,7 @@ class FishHunterGame {
   }
   
   addBall() {
-    const isRedBall = Math.random() > 0.7;
-    const radius = isRedBall ? 15 * 1.5 : 15;
+    const radius = 15;
     const minDistance = 110;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -189,8 +171,7 @@ class FishHunterGame {
           radius,
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: (1 + Math.random() * 2) * 0.2,
-          isRedBall: isRedBall
+          speed: (1 + Math.random() * 2) * 0.2
         });
         
         if (this.bubbleAudio) {
@@ -223,25 +204,11 @@ class FishHunterGame {
     this.isDrawing = true;
     this.isTwoFinger = e.touches.length === 2;
     
-    this.log('Touch start', {
-      touches: e.touches.length,
-      isTwoFinger: this.isTwoFinger,
-      touchPositions: e.touches.map(touch => ({ x: touch.clientX, y: touch.clientY }))
-    });
-    
-    if (this.isTwoFinger) {
-      this.touchStartPositions = e.touches.map(touch => ({
-        x: touch.clientX,
-        y: touch.clientY,
-        identifier: touch.identifier
-      }));
-      this.log('Two-finger touch start', { startPositions: this.touchStartPositions });
-    } else {
+    if (!this.isTwoFinger) {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
       this.findClosestImage(this.startX, this.startY);
-      this.log('Single-finger touch start', { startX: this.startX, startY: this.startY });
     }
   }
   
@@ -258,17 +225,9 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
-    this.log('Touch end', {
-      touches: e.touches.length,
-      changedTouches: e.changedTouches.length,
-      isTwoFinger: this.isTwoFinger
-    });
-    
     if (this.isTwoFinger) {
-      this.log('Two-finger touch end', { startPositions: this.touchStartPositions });
       this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
-      this.touchStartPositions = [];
       return;
     }
     
@@ -276,7 +235,6 @@ class FishHunterGame {
     const endX = touch.clientX;
     const endY = touch.clientY;
     
-    this.log('Single-finger touch end', { startX: this.startX, startY: this.startY, endX, endY });
     this.processSwipe(endX, endY);
   }
   
@@ -321,21 +279,13 @@ class FishHunterGame {
       return;
     }
     
-    const now = Date.now();
-    if (now - this.lastShootTime < this.shootCooldown) {
-      return;
-    }
-    
     this.score--;
-    this.lastShootTime = now;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
-    this.log('Two-finger swipe triggered');
-    
     if (this.score < 9) {
       this.score = 9;
     }
@@ -344,8 +294,6 @@ class FishHunterGame {
       this.shootAudio.currentTime = 0;
       this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
     }
-    
-    this.redBallKilled = 0;
     
     const centerX = this.canvasWidth / 2;
     const centerY = this.originY;
@@ -505,6 +453,9 @@ class FishHunterGame {
     this.drawWaves();
     this.drawReflections();
     
+    // 绘制箭头（从下到上）
+    this.drawArrow();
+    
     if (this.fishImage) {
       const staticWidth = 60;
       const staticHeight = 120;
@@ -518,17 +469,6 @@ class FishHunterGame {
       this.ctx.fillText(this.score.toString(), 5, this.originY - staticHeight - 10);
       this.ctx.restore();
     }
-    
-    this.ctx.save();
-    this.ctx.font = '16px Arial';
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
-    this.ctx.fillStyle = '#ff4444';
-    this.ctx.fillText(`红球: ${this.redBallKilled}/${this.redBallRequired}`, 10, 60);
-    this.ctx.fillStyle = '#ffff00';
-    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 90);
-    this.ctx.restore();
     
     if (this.chuanImage) {
       const chuanWidth = 360;
@@ -554,22 +494,13 @@ class FishHunterGame {
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
         this.ctx.rotate(ball.angle || 0);
-        
-        if (ball.isRedBall) {
-          this.ctx.fillStyle = '#ff0000';
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
-          this.ctx.fill();
-        } else {
-          this.ctx.drawImage(
-            this.ballImage,
-            -ballSize / 2,
-            -ballSize / 2,
-            ballSize,
-            ballSize
-          );
-        }
-        
+        this.ctx.drawImage(
+          this.ballImage,
+          -ballSize / 2,
+          -ballSize / 2,
+          ballSize,
+          ballSize
+        );
         this.ctx.restore();
       }
       
@@ -599,15 +530,6 @@ class FishHunterGame {
       
       if (closestBall && minDistance < 20) {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
-        
-        if (closestBall.isRedBall) {
-          this.redBallKilled++;
-        } else {
-          this.fishKilled++;
-          
-          const level = Math.floor(this.fishKilled / this.fishPerLevel);
-          this.shootCooldown = Math.max(100, 500 - level * this.cooldownReduction);
-        }
       }
       
       this.ctx.save();
@@ -653,35 +575,31 @@ class FishHunterGame {
     };
   }
   
-  log(message, data = {}) {
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      message,
-      data
-    };
-    this.logs.push(logEntry);
-    console.log(`[LOG] ${message}`, data);
+  drawArrow() {
+    const arrowHeight = this.canvasHeight / 2;
+    const arrowWidth = this.canvasWidth / 4;
+    const startX = this.canvasWidth / 2;
+    const startY = this.canvasHeight;
+    const endY = this.canvasHeight / 2;
     
-    if (this.logs.length > 100) {
-      this.logs.shift();
-    }
-  }
-  
-  exportLogs() {
-    const logData = JSON.stringify(this.logs, null, 2);
-    const blob = new Blob([logData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'touch-logs.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    this.log('Logs exported');
+    this.ctx.save();
+    this.ctx.strokeStyle = '#FF0000';
+    this.ctx.lineWidth = 3;
+    this.ctx.beginPath();
+    this.ctx.moveTo(startX, startY);
+    this.ctx.lineTo(startX, endY);
+    this.ctx.stroke();
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(startX - arrowWidth / 2, endY + arrowWidth / 2);
+    this.ctx.lineTo(startX, endY);
+    this.ctx.lineTo(startX + arrowWidth / 2, endY + arrowWidth / 2);
+    this.ctx.stroke();
+    
+    this.ctx.restore();
   }
 }
 
 window.onload = () => {
-  window.game = new FishHunterGame();
+  new FishHunterGame();
 };
