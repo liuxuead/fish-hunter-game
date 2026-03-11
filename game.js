@@ -339,14 +339,16 @@ class FishHunterGame {
     const startAvgY = (startTouches[0].y + startTouches[1].y) / 2;
     const endAvgY = (endTouches[0].y + endTouches[1].y) / 2;
     
-    // 检查条件：
-    // 1. 双指距离不超过屏幕宽度的1/3
-    // 2. 滑动方向是从下往上（结束位置的y坐标小于起始位置）
-    // 3. 收集足够的红色圆球
-    const maxDistance = this.canvasWidth / 3;
-    const isUpwardSwipe = endAvgY < startAvgY;
+    // 计算滑动距离
+    const swipeDistance = startAvgY - endAvgY;
     
-    if (startDistance <= maxDistance && endDistance <= maxDistance && isUpwardSwipe && this.redBallKilled >= this.redBallRequired) {
+    // 检查条件：
+    // 1. 双指距离不超过屏幕宽度的1/2
+    // 2. 向上滑动距离至少20像素
+    // 3. 收集足够的红色圆球
+    const maxDistance = this.canvasWidth / 2;
+    
+    if (startDistance <= maxDistance && endDistance <= maxDistance && swipeDistance > 20 && this.redBallKilled >= this.redBallRequired) {
       if (this.score < 9) {
         this.score = 9;
       }
