@@ -46,6 +46,12 @@ class FishHunterGame {
     
     this.fishKilled = 0;
     this.redBallKilled = 0;
+    this.redBallRequired = 3;
+    
+    this.shootCooldown = 500;
+    this.lastShootTime = 0;
+    this.cooldownReduction = 50;
+    this.fishPerLevel = 5;
     
     this.init();
   }
@@ -284,13 +290,23 @@ class FishHunterGame {
       return;
     }
     
+    const now = Date.now();
+    if (now - this.lastShootTime < this.shootCooldown) {
+      return;
+    }
+    
     this.score--;
+    this.lastShootTime = now;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
+    if (this.redBallKilled < this.redBallRequired) {
+      return;
+    }
+    
     if (this.score < 9) {
       this.score = 9;
     }
@@ -299,6 +315,8 @@ class FishHunterGame {
       this.shootAudio.currentTime = 0;
       this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
     }
+    
+    this.redBallKilled = 0;
     
     const centerX = this.canvasWidth / 2;
     const centerY = this.originY;
@@ -490,7 +508,9 @@ class FishHunterGame {
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
     this.ctx.fillStyle = '#ff4444';
-    this.ctx.fillText(`红球: ${this.redBallKilled}`, 10, 60);
+    this.ctx.fillText(`红球: ${this.redBallKilled}/${this.redBallRequired}`, 10, 60);
+    this.ctx.fillStyle = '#ffff00';
+    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 90);
     this.ctx.restore();
     
     this.balls = this.balls.filter(ball => {
@@ -553,6 +573,9 @@ class FishHunterGame {
           this.redBallKilled++;
         } else {
           this.fishKilled++;
+          
+          const level = Math.floor(this.fishKilled / this.fishPerLevel);
+          this.shootCooldown = Math.max(100, 500 - level * this.cooldownReduction);
         }
       }
       
