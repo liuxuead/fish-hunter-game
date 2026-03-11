@@ -249,11 +249,8 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
-    if (this.isTwoFinger && this.touchStartPositions.length === 2) {
-      const endTouches = Array.from(e.changedTouches);
-      if (endTouches.length === 2) {
-        this.handleTwoFingerSwipe(this.touchStartPositions, endTouches);
-      }
+    if (this.isTwoFinger) {
+      this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
       this.touchStartPositions = [];
       return;
@@ -322,7 +319,7 @@ class FishHunterGame {
     this.lastShootTime = now;
   }
   
-  handleTwoFingerSwipe(startTouches, endTouches) {
+  handleTwoFingerSwipe() {
     if (this.score < 9) {
       this.score = 9;
     }
