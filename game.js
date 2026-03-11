@@ -251,24 +251,7 @@ class FishHunterGame {
     this.isDrawing = false;
     
     if (this.isTwoFinger) {
-      // 获取抬起的手指位置
-      const endTouches = Array.from(e.changedTouches);
-      if (endTouches.length > 0) {
-        // 如果只抬起了一个手指，使用另一个手指的位置作为结束位置
-        if (endTouches.length === 1 && this.touchStartPositions.length === 2) {
-          // 找到抬起的手指索引
-          const liftedIndex = endTouches[0].identifier === this.touchStartPositions[0].identifier ? 0 : 1;
-          // 另一个手指的位置保持不变
-          const currentTouches = [
-            this.touchStartPositions[liftedIndex === 0 ? 1 : 0],
-            endTouches[0]
-          ];
-          this.handleTwoFingerSwipe(this.touchStartPositions, currentTouches);
-        } else if (endTouches.length === 2) {
-          // 两个手指都抬起了，使用抬起的位置作为结束位置
-          this.handleTwoFingerSwipe(this.touchStartPositions, endTouches);
-        }
-      }
+      this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
       this.touchStartPositions = [];
       return;
@@ -337,22 +320,7 @@ class FishHunterGame {
     this.lastShootTime = now;
   }
   
-  handleTwoFingerSwipe(startTouches, currentTouches) {
-    // 获取起始位置的Y坐标（处理不同格式的触摸对象）
-    const getY = (touch) => touch.y || touch.clientY;
-    
-    // 计算起始和当前的平均Y坐标
-    const startAvgY = (getY(startTouches[0]) + getY(startTouches[1])) / 2;
-    const currentAvgY = (getY(currentTouches[0]) + getY(currentTouches[1])) / 2;
-    
-    // 计算滑动距离
-    const swipeDistance = startAvgY - currentAvgY;
-    
-    // 检查是否向上滑动（至少10像素，更宽松）
-    if (swipeDistance <= 10) {
-      return;
-    }
-    
+  handleTwoFingerSwipe() {
     if (this.score < 9) {
       this.score = 9;
     }
