@@ -250,7 +250,11 @@ class FishHunterGame {
     this.isDrawing = false;
     
     if (this.isTwoFinger) {
-      this.handleTwoFingerSwipe();
+      // 获取当前还在屏幕上的手指位置
+      const currentTouches = Array.from(e.touches);
+      if (currentTouches.length > 0) {
+        this.handleTwoFingerSwipe(this.touchStartPositions, currentTouches);
+      }
       this.isTwoFinger = false;
       this.touchStartPositions = [];
       return;
@@ -319,7 +323,19 @@ class FishHunterGame {
     this.lastShootTime = now;
   }
   
-  handleTwoFingerSwipe() {
+  handleTwoFingerSwipe(startTouches, currentTouches) {
+    // 计算起始和当前的平均Y坐标
+    const startAvgY = (startTouches[0].y + startTouches[1].y) / 2;
+    const currentAvgY = (currentTouches[0].y + currentTouches[1].y) / 2;
+    
+    // 计算滑动距离
+    const swipeDistance = startAvgY - currentAvgY;
+    
+    // 检查是否向上滑动（至少20像素）
+    if (swipeDistance <= 20) {
+      return;
+    }
+    
     if (this.score < 9) {
       this.score = 9;
     }
