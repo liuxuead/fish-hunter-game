@@ -129,7 +129,8 @@ class FishHunterGame {
   }
   
   addBall() {
-    const radius = 15;
+    const isRedBall = Math.random() > 0.7;
+    const radius = isRedBall ? 15 * 1.5 : 15;
     const minDistance = 110;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -171,7 +172,8 @@ class FishHunterGame {
           radius,
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: (1 + Math.random() * 2) * 0.2
+          speed: (1 + Math.random() * 2) * 0.2,
+          isRedBall: isRedBall
         });
         
         if (this.bubbleAudio) {
@@ -453,9 +455,6 @@ class FishHunterGame {
     this.drawWaves();
     this.drawReflections();
     
-    // 绘制箭头（从下到上）
-    this.drawArrow();
-    
     if (this.fishImage) {
       const staticWidth = 60;
       const staticHeight = 120;
@@ -489,7 +488,14 @@ class FishHunterGame {
         return false;
       }
       
-      if (this.ballImage) {
+      if (ball.isRedBall) {
+        this.ctx.save();
+        this.ctx.fillStyle = '#ff0000';
+        this.ctx.beginPath();
+        this.ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      } else if (this.ballImage) {
         const ballSize = ball.radius * 2;
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
@@ -573,30 +579,6 @@ class FishHunterGame {
       x: x + t * dx,
       y: y + t * dy
     };
-  }
-  
-  drawArrow() {
-    const arrowHeight = this.canvasHeight / 2;
-    const arrowWidth = this.canvasWidth / 4;
-    const startX = this.canvasWidth / 2;
-    const startY = this.canvasHeight;
-    const endY = this.canvasHeight / 2;
-    
-    this.ctx.save();
-    this.ctx.strokeStyle = '#FF0000';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(startX, startY);
-    this.ctx.lineTo(startX, endY);
-    this.ctx.stroke();
-    
-    this.ctx.beginPath();
-    this.ctx.moveTo(startX - arrowWidth / 2, endY + arrowWidth / 2);
-    this.ctx.lineTo(startX, endY);
-    this.ctx.lineTo(startX + arrowWidth / 2, endY + arrowWidth / 2);
-    this.ctx.stroke();
-    
-    this.ctx.restore();
   }
 }
 
