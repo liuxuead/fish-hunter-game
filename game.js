@@ -43,7 +43,19 @@ class FishHunterGame {
     this.bubbleAudio = null;
     this.audioContext = null;
     
-    this.soundEnabled = localStorage.getItem('fishHunterSound') === 'true';
+    // 计数系统
+    this.fishKilled = 0;         // 普通鱼击杀数
+    this.redBallKilled = 0;      // 红色圆球击杀数
+    this.redBallRequired = 3;    // 触发双指发射需要的红色圆球数
+    
+    // 发射速度控制
+    this.shootCooldown = 500;     // 初始冷却时间（毫秒）
+    this.lastShootTime = 0;       // 上次发射时间
+    this.cooldownReduction = 50;  // 每级减少的冷却时间
+    this.fishPerLevel = 5;        // 每杀多少鱼提升一级速度
+    
+    // 双指触摸记录
+    this.touchStartPositions = [];
     
     this.touches = [];
     
@@ -56,41 +68,12 @@ class FishHunterGame {
     
     this.loadResources().then(() => {
       document.getElementById('loading').style.display = 'none';
-      this.createSoundToggle();
       this.startBallTimer();
       this.startBreathingAnimation();
       this.initReflections();
       this.bindEvents();
       this.runAnimationLoop();
     });
-  }
-  
-  createSoundToggle() {
-    const toggle = document.createElement('div');
-    toggle.style.position = 'fixed';
-    toggle.style.top = '10px';
-    toggle.style.right = '10px';
-    toggle.style.width = '80px';
-    toggle.style.height = '30px';
-    toggle.style.backgroundColor = this.soundEnabled ? '#4CAF50' : '#ccc';
-    toggle.style.borderRadius = '15px';
-    toggle.style.cursor = 'pointer';
-    toggle.style.zIndex = '1000';
-    toggle.style.display = 'flex';
-    toggle.style.alignItems = 'center';
-    toggle.style.justifyContent = 'center';
-    toggle.style.color = 'white';
-    toggle.style.fontSize = '12px';
-    toggle.style.fontFamily = 'Arial, sans-serif';
-    toggle.style.fontWeight = 'bold';
-    toggle.textContent = this.soundEnabled ? '音效: 开' : '音效: 关';
-    toggle.onclick = () => {
-      this.soundEnabled = !this.soundEnabled;
-      localStorage.setItem('fishHunterSound', this.soundEnabled.toString());
-      toggle.style.backgroundColor = this.soundEnabled ? '#4CAF50' : '#ccc';
-      toggle.textContent = this.soundEnabled ? '音效: 开' : '音效: 关';
-    };
-    document.body.appendChild(toggle);
   }
   
   resizeCanvas() {
@@ -128,13 +111,6 @@ class FishHunterGame {
     this.bubbleAudio.preload = 'auto';
   }
   
-  playSound(audio) {
-    if (this.soundEnabled && audio) {
-      audio.currentTime = 0;
-      audio.play().catch(e => console.log('音频播放失败:', e));
-    }
-  }
-  
   startBallTimer() {
     this.ballTimer = setInterval(() => {
       if (this.balls.length < 5) {
@@ -168,7 +144,9 @@ class FishHunterGame {
   }
   
   addBall() {
-    const radius = 15;
+    // 30% 概率生成红色圆球（稀有一些）
+    const isRedBall = Math.random() > 0.7;
+    const radius = isRedBall ? 15 * 1.5 : 15; // 红色圆球大50%
     const minDistance = 110;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -210,10 +188,14 @@ class FishHunterGame {
           radius,
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: (1 + Math.random() * 2) * 0.2
+          speed: (1 + Math.random() * 2) * 0.2,
+          isRedBall: isRedBall
         });
         
-        this.playSound(this.bubbleAudio);
+        if (this.bubbleAudio) {
+          this.bubbleAudio.currentTime = 0;
+          this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
+        }
         
         if (!this.animationRunning) {
           this.animationRunning = true;
@@ -232,12 +214,6 @@ class FishHunterGame {
     this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-    
-    this.canvas.addEventListener('click', () => {
-      if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-    });
   }
   
   handleTouchStart(e) {
@@ -246,7 +222,13 @@ class FishHunterGame {
     this.isDrawing = true;
     this.isTwoFinger = e.touches.length === 2;
     
-    if (!this.isTwoFinger) {
+    if (this.isTwoFinger) {
+      // 记录双指起始位置
+      this.touchStartPositions = e.touches.map(touch => ({
+        x: touch.clientX,
+        y: touch.clientY
+      }));
+    } else if (this.touches.length === 1) {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
@@ -267,9 +249,13 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
-    if (this.isTwoFinger) {
-      this.handleTwoFingerSwipe();
+    if (this.isTwoFinger && this.touchStartPositions.length === 2) {
+      const endTouches = Array.from(e.changedTouches);
+      if (endTouches.length === 2) {
+        this.handleTwoFingerSwipe(this.touchStartPositions, endTouches);
+      }
       this.isTwoFinger = false;
+      this.touchStartPositions = [];
       return;
     }
     
@@ -321,35 +307,75 @@ class FishHunterGame {
       return;
     }
     
+    // 检查冷却时间
+    const now = Date.now();
+    if (now - this.lastShootTime < this.shootCooldown) {
+      return;
+    }
+    
     this.score--;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
+    
+    // 更新发射时间
+    this.lastShootTime = now;
   }
   
-  handleTwoFingerSwipe() {
-    if (this.score < 9) {
-      this.score = 9;
-    }
+  handleTwoFingerSwipe(startTouches, endTouches) {
+    // 计算双指起始距离
+    const startDistance = Math.sqrt(
+      Math.pow(startTouches[0].x - startTouches[1].x, 2) +
+      Math.pow(startTouches[0].y - startTouches[1].y, 2)
+    );
     
-    this.playSound(this.shootAudio);
+    // 计算双指结束距离
+    const endDistance = Math.sqrt(
+      Math.pow(endTouches[0].x - endTouches[1].x, 2) +
+      Math.pow(endTouches[0].y - endTouches[1].y, 2)
+    );
     
-    const centerX = this.canvasWidth / 2;
-    const centerY = this.originY;
+    // 计算平均起始和结束位置
+    const startAvgY = (startTouches[0].y + startTouches[1].y) / 2;
+    const endAvgY = (endTouches[0].y + endTouches[1].y) / 2;
     
-    const angleRange = Math.PI / 3;
-    const angleStep = angleRange / 8;
+    // 检查条件：
+    // 1. 双指距离不超过屏幕宽度的1/3
+    // 2. 滑动方向是从下往上（结束位置的y坐标小于起始位置）
+    // 3. 收集足够的红色圆球
+    const maxDistance = this.canvasWidth / 3;
+    const isUpwardSwipe = endAvgY < startAvgY;
     
-    for (let i = 0; i < 9; i++) {
-      const angle = -angleRange / 2 + i * angleStep + Math.PI / 2 + Math.PI;
-      const dx = Math.cos(angle);
-      const dy = Math.sin(angle);
+    if (startDistance <= maxDistance && endDistance <= maxDistance && isUpwardSwipe && this.redBallKilled >= this.redBallRequired) {
+      if (this.score < 9) {
+        this.score = 9;
+      }
       
-      const startX = centerX;
-      const startY = centerY;
-      const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
+      if (this.shootAudio) {
+        this.shootAudio.currentTime = 0;
+        this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
+      }
       
-      this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
+      // 重置红色圆球计数
+      this.redBallKilled = 0;
+      
+      const centerX = this.canvasWidth / 2;
+      const centerY = this.originY;
+      
+      const angleRange = Math.PI / 3;
+      const angleStep = angleRange / 8;
+      
+      for (let i = 0; i < 9; i++) {
+        const angle = -angleRange / 2 + i * angleStep + Math.PI / 2 + Math.PI;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        
+        const startX = centerX;
+        const startY = centerY;
+        const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
+        
+        this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
+      }
     }
   }
   
@@ -375,7 +401,10 @@ class FishHunterGame {
   addAnimation(startX, startY, endX, endY, dx, dy) {
     if (!this.fishImage) return;
     
-    this.playSound(this.shootAudio);
+    if (this.shootAudio) {
+      this.shootAudio.currentTime = 0;
+      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
+    }
     
     const animation = {
       startX,
@@ -503,6 +532,18 @@ class FishHunterGame {
       this.ctx.restore();
     }
     
+    // 显示击杀计数
+    this.ctx.save();
+    this.ctx.font = '16px Arial';
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
+    this.ctx.fillStyle = '#ff4444';
+    this.ctx.fillText(`红球: ${this.redBallKilled}/${this.redBallRequired}`, 10, 60);
+    this.ctx.fillStyle = '#ffff00';
+    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 90);
+    this.ctx.restore();
+    
     if (this.chuanImage) {
       const chuanWidth = 360;
       const chuanHeight = 240;
@@ -527,6 +568,14 @@ class FishHunterGame {
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
         this.ctx.rotate(ball.angle || 0);
+        
+        // 红色圆球特殊处理
+        if (ball.isRedBall) {
+          this.ctx.globalAlpha = 0.8;
+          this.ctx.shadowColor = '#ff0000';
+          this.ctx.shadowBlur = 10;
+        }
+        
         this.ctx.drawImage(
           this.ballImage,
           -ballSize / 2,
@@ -562,6 +611,14 @@ class FishHunterGame {
       }
       
       if (closestBall && minDistance < 20) {
+        if (closestBall.isRedBall) {
+          this.redBallKilled++;
+        } else {
+          this.fishKilled++;
+          // 每杀一定数量的鱼提升发射速度
+          const level = Math.floor(this.fishKilled / this.fishPerLevel);
+          this.shootCooldown = Math.max(100, 500 - level * this.cooldownReduction);
+        }
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
       }
       
