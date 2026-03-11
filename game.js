@@ -323,61 +323,34 @@ class FishHunterGame {
   }
   
   handleTwoFingerSwipe(startTouches, endTouches) {
-    // 计算双指起始距离
-    const startDistance = Math.sqrt(
-      Math.pow(startTouches[0].x - startTouches[1].x, 2) +
-      Math.pow(startTouches[0].y - startTouches[1].y, 2)
-    );
+    if (this.score < 9) {
+      this.score = 9;
+    }
     
-    // 计算双指结束距离
-    const endDistance = Math.sqrt(
-      Math.pow(endTouches[0].x - endTouches[1].x, 2) +
-      Math.pow(endTouches[0].y - endTouches[1].y, 2)
-    );
+    if (this.shootAudio) {
+      this.shootAudio.currentTime = 0;
+      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
+    }
     
-    // 计算平均起始和结束位置
-    const startAvgY = (startTouches[0].y + startTouches[1].y) / 2;
-    const endAvgY = (endTouches[0].y + endTouches[1].y) / 2;
+    // 重置红色圆球计数
+    this.redBallKilled = 0;
     
-    // 计算滑动距离
-    const swipeDistance = startAvgY - endAvgY;
+    const centerX = this.canvasWidth / 2;
+    const centerY = this.originY;
     
-    // 检查条件：
-    // 1. 双指距离不超过屏幕宽度的1/2
-    // 2. 向上滑动距离至少20像素
-    // 3. 收集足够的红色圆球
-    const maxDistance = this.canvasWidth / 2;
+    const angleRange = Math.PI / 3;
+    const angleStep = angleRange / 8;
     
-    if (startDistance <= maxDistance && endDistance <= maxDistance && swipeDistance > 20 && this.redBallKilled >= this.redBallRequired) {
-      if (this.score < 9) {
-        this.score = 9;
-      }
+    for (let i = 0; i < 9; i++) {
+      const angle = -angleRange / 2 + i * angleStep + Math.PI / 2 + Math.PI;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
       
-      if (this.shootAudio) {
-        this.shootAudio.currentTime = 0;
-        this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
-      }
+      const startX = centerX;
+      const startY = centerY;
+      const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
       
-      // 重置红色圆球计数
-      this.redBallKilled = 0;
-      
-      const centerX = this.canvasWidth / 2;
-      const centerY = this.originY;
-      
-      const angleRange = Math.PI / 3;
-      const angleStep = angleRange / 8;
-      
-      for (let i = 0; i < 9; i++) {
-        const angle = -angleRange / 2 + i * angleStep + Math.PI / 2 + Math.PI;
-        const dx = Math.cos(angle);
-        const dy = Math.sin(angle);
-        
-        const startX = centerX;
-        const startY = centerY;
-        const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
-        
-        this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
-      }
+      this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
     }
   }
   
