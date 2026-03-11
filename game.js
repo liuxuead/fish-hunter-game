@@ -358,12 +358,6 @@ class FishHunterGame {
       return;
     }
     
-    // 检查是否从下向上滑动（单指操作）
-    const swipeDistance = this.startY - endY;
-    if (swipeDistance <= 5) {
-      return; // 不是向上滑动，不触发
-    }
-    
     // 检查冷却时间
     const now = Date.now();
     if (now - this.lastShootTime < this.shootCooldown) {
