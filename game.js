@@ -223,10 +223,11 @@ class FishHunterGame {
     this.isTwoFinger = e.touches.length === 2;
     
     if (this.isTwoFinger) {
-      // 记录双指起始位置
+      // 记录双指起始位置（包含identifier）
       this.touchStartPositions = e.touches.map(touch => ({
         x: touch.clientX,
-        y: touch.clientY
+        y: touch.clientY,
+        identifier: touch.identifier
       }));
     } else if (this.touches.length === 1) {
       const touch = e.touches[0];
