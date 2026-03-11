@@ -47,6 +47,8 @@ class FishHunterGame {
     
     this.fishKilled = 0;
     this.bigFishKilled = 0;
+    this.bigFishPerTrigger = 3;
+    this.bigFishTriggers = 0;
     
     this.shootCooldown = 500;
     this.lastShootTime = 0;
@@ -304,6 +306,12 @@ class FishHunterGame {
   }
   
   handleTwoFingerSwipe() {
+    if (this.bigFishTriggers <= 0) {
+      return;
+    }
+    
+    this.bigFishTriggers--;
+    
     if (this.score < 9) {
       this.score = 9;
     }
@@ -503,7 +511,7 @@ class FishHunterGame {
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
     this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillText(`大鱼: ${this.bigFishKilled}`, 10, 55);
+    this.ctx.fillText(`大鱼: ${this.bigFishKilled}/${this.bigFishTriggers}`, 10, 55);
     this.ctx.fillStyle = '#ffff00';
     this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 80);
     this.ctx.restore();
@@ -573,6 +581,10 @@ class FishHunterGame {
         if (closestBall.isRedBall) {
           this.score++;
           this.bigFishKilled++;
+          
+          if (this.bigFishKilled % this.bigFishPerTrigger === 0) {
+            this.bigFishTriggers++;
+          }
         } else {
           this.fishKilled++;
           
