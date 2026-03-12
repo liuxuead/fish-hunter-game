@@ -39,6 +39,7 @@ class FishHunterGame {
     
     this.waveOffset = 0;
     this.reflections = [];
+    this.scoreTexts = [];
     
     this.shootAudio = null;
     this.audioContext = null;
@@ -603,7 +604,7 @@ class FishHunterGame {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
         
         if (closestBall.isRedBall) {
-          this.score++;
+          this.score += 5;
           this.bigFishKilled++;
           
           const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
@@ -612,12 +613,16 @@ class FishHunterGame {
           if (currentTriggers > this.bigFishTriggers) {
             this.bigFishTriggers = currentTriggers;
           }
+          
+          // 添加得分文字动画
+          this.addScoreText(closestBall.x, closestBall.y, '+5');
         } else {
+          this.score++;
           this.fishKilled++;
           
           // 更新玩家等级
           for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.fishKilled >= this.levelThresholds[i]) {
+            if (this.score >= this.levelThresholds[i]) {
               this.playerLevel = i;
               break;
             }
@@ -625,6 +630,9 @@ class FishHunterGame {
           
           // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
           this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
+          
+          // 添加得分文字动画
+          this.addScoreText(closestBall.x, closestBall.y, '+1');
         }
       }
       
@@ -642,6 +650,9 @@ class FishHunterGame {
       
       return progress < 1;
     });
+    
+    this.updateScoreTexts();
+    this.drawScoreTexts();
     
     requestAnimationFrame(() => this.runAnimationLoop());
   }
@@ -675,6 +686,42 @@ class FishHunterGame {
     const levelIndex = Math.min(this.playerLevel, this.fishSpeedRanges.length - 1);
     const range = this.fishSpeedRanges[levelIndex];
     return range.min + Math.random() * (range.max - range.min);
+  }
+  
+  addScoreText(x, y, text) {
+    this.scoreTexts.push({
+      x,
+      y,
+      text,
+      startTime: Date.now(),
+      duration: 1000,
+      ySpeed: -2,
+      opacity: 1
+    });
+  }
+  
+  updateScoreTexts() {
+    const now = Date.now();
+    this.scoreTexts = this.scoreTexts.filter(text => {
+      const elapsed = now - text.startTime;
+      const progress = elapsed / text.duration;
+      
+      text.y += text.ySpeed;
+      text.opacity = 1 - progress;
+      
+      return progress < 1;
+    });
+  }
+  
+  drawScoreTexts() {
+    this.scoreTexts.forEach(text => {
+      this.ctx.save();
+      this.ctx.font = '20px Arial';
+      this.ctx.fillStyle = `rgba(255, 0, 0, ${text.opacity})`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(text.text, text.x, text.y);
+      this.ctx.restore();
+    });
   }
 }
 
