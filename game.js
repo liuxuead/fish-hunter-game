@@ -113,6 +113,7 @@ class FishHunterGame {
     
     try {
       this.fishImage = await loadImage('images/yucha.png');
+      this.fishImage2 = await loadImage('images/yucha2.png');
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
@@ -418,8 +419,9 @@ class FishHunterGame {
       this.ctx.shadowOffsetY = 0;
     }
     
+    const currentWeaponImage = this.playerLevel === 0 ? this.fishImage : this.fishImage2;
     this.ctx.drawImage(
-      this.fishImage,
+      currentWeaponImage,
       -staticWidth / 2,
       -staticHeight,
       staticWidth,
@@ -650,8 +652,9 @@ class FishHunterGame {
       this.ctx.save();
       this.ctx.translate(currentX, currentY);
       this.ctx.rotate(anim.angle);
+      const currentWeaponImage = this.playerLevel === 0 ? this.fishImage : this.fishImage2;
       this.ctx.drawImage(
-        this.fishImage,
+        currentWeaponImage,
         -imgWidth / 2,
         -imgHeight / 2,
         imgWidth,
