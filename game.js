@@ -48,10 +48,14 @@ class FishHunterGame {
     this.fishKilled = 0;
     this.bigFishKilled = 0;
     this.bigFishTriggers = 0;
-    this.bigFishNextTarget = 3;
+    this.bigFishNextTarget = 0;
     
     this.playerLevel = 0;
     this.levelThresholds = [0, 10, 50, 100, 300, 800, 1500, 2500, 5000, 10000, 100000];
+    this.bigFishPerLevel = [3, 10, 10, 20, 50, 30, 40, 50, 100, 500, 1000];
+    this.bigFishCurrentTarget = 0;
+    
+    this.maxFishPerLevel = [5, 5, 8, 10, 20, 30, 40, 40, 40, 40, 40];
     
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
@@ -111,7 +115,8 @@ class FishHunterGame {
   
   startBallTimer() {
     this.ballTimer = setInterval(() => {
-      if (this.balls.length < 5) {
+      const maxFish = this.maxFishPerLevel[Math.min(this.playerLevel, this.maxFishPerLevel.length - 1)];
+      if (this.balls.length < maxFish) {
         this.addBall();
       }
     }, 1000);
@@ -144,7 +149,7 @@ class FishHunterGame {
   addBall() {
     const isRedBall = Math.random() > 0.7;
     const radius = isRedBall ? 15 * 1.5 : 15;
-    const minDistance = 110;
+    const minDistance = 40;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
     
@@ -512,8 +517,12 @@ class FishHunterGame {
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
     this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 50);
+    
+    const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
+    const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
     this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishNextTarget - this.bigFishKilled}`, 10, 75);
+    this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishKilled}/${nextTarget}`, 10, 75);
+    
     this.ctx.fillStyle = '#ffff00';
     this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
     this.ctx.restore();
@@ -584,9 +593,11 @@ class FishHunterGame {
           this.score++;
           this.bigFishKilled++;
           
-          if (this.bigFishKilled >= this.bigFishNextTarget) {
-            this.bigFishTriggers++;
-            this.bigFishNextTarget += 3;
+          const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
+          const currentTriggers = Math.floor(this.bigFishKilled / requiredPerTrigger);
+          
+          if (currentTriggers > this.bigFishTriggers) {
+            this.bigFishTriggers = currentTriggers;
           }
         } else {
           this.fishKilled++;
