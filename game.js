@@ -47,13 +47,14 @@ class FishHunterGame {
     
     this.fishKilled = 0;
     this.bigFishKilled = 0;
-    this.bigFishPerTrigger = 3;
     this.bigFishTriggers = 0;
+    this.bigFishNextTarget = 3;
     
-    this.shootCooldown = 500;
+    this.playerLevel = 0;
+    this.levelThresholds = [0, 10, 50, 100, 300, 800, 1500, 2500, 5000, 10000, 100000];
+    
+    this.shootCooldown = 1000;
     this.lastShootTime = 0;
-    this.cooldownReduction = 50;
-    this.fishPerLevel = 5;
     
     this.init();
   }
@@ -509,11 +510,12 @@ class FishHunterGame {
     this.ctx.font = '16px Arial';
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 30);
+    this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
+    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 50);
     this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillText(`大鱼: ${this.bigFishKilled}/${this.bigFishTriggers}`, 10, 55);
+    this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishNextTarget - this.bigFishKilled}`, 10, 75);
     this.ctx.fillStyle = '#ffff00';
-    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 80);
+    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
     this.ctx.restore();
     
     this.balls = this.balls.filter(ball => {
@@ -582,14 +584,23 @@ class FishHunterGame {
           this.score++;
           this.bigFishKilled++;
           
-          if (this.bigFishKilled % this.bigFishPerTrigger === 0) {
+          if (this.bigFishKilled >= this.bigFishNextTarget) {
             this.bigFishTriggers++;
+            this.bigFishNextTarget += 3;
           }
         } else {
           this.fishKilled++;
           
-          const level = Math.floor(this.fishKilled / this.fishPerLevel);
-          this.shootCooldown = Math.max(100, 500 - level * this.cooldownReduction);
+          // 更新玩家等级
+          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
+            if (this.fishKilled >= this.levelThresholds[i]) {
+              this.playerLevel = i;
+              break;
+            }
+          }
+          
+          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
+          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
         }
       }
       
