@@ -293,6 +293,10 @@ class FishHunterGame {
   }
   
   processSwipe(endX, endY) {
+    if (this.startY < this.canvasHeight / 2) {
+      return;
+    }
+    
     const dx = endX - this.startX;
     const dy = endY - this.startY;
     
