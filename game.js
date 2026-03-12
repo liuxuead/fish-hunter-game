@@ -530,7 +530,7 @@ class FishHunterGame {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
-    this.ctx.fillText(`鱼: ${this.fishKilled}`, 10, 50);
+    this.ctx.fillText(`分: ${this.score}`, 10, 50);
     
     const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
     const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
@@ -606,6 +606,17 @@ class FishHunterGame {
         if (closestBall.isRedBall) {
           this.score += 5;
           this.bigFishKilled++;
+          
+          // 更新玩家等级
+          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
+            if (this.score >= this.levelThresholds[i]) {
+              this.playerLevel = i;
+              break;
+            }
+          }
+          
+          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
+          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
           
           const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
           const currentTriggers = Math.floor(this.bigFishKilled / requiredPerTrigger);
