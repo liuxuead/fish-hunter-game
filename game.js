@@ -56,6 +56,19 @@ class FishHunterGame {
     this.bigFishCurrentTarget = 0;
     
     this.maxFishPerLevel = [5, 5, 8, 10, 20, 30, 40, 40, 40, 40, 40];
+    this.fishSpeedRanges = [
+      { min: 0.1, max: 0.2 },   // 0级
+      { min: 0.15, max: 0.25 },  // 1级
+      { min: 0.2, max: 0.3 },    // 2级
+      { min: 0.25, max: 0.35 },  // 3级
+      { min: 0.3, max: 0.4 },    // 4级
+      { min: 0.35, max: 0.45 },  // 5级
+      { min: 0.4, max: 0.5 },    // 6级
+      { min: 0.45, max: 0.55 },  // 7级
+      { min: 0.5, max: 0.6 },    // 8级
+      { min: 0.6, max: 0.8 },    // 9级
+      { min: 0.6, max: 0.8 }     // 10级
+    ];
     
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
@@ -190,7 +203,7 @@ class FishHunterGame {
           radius,
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: (1 + Math.random() * 2) * 0.2,
+          speed: this.getFishSpeed(),
           isRedBall: isRedBall
         });
         
@@ -656,6 +669,12 @@ class FishHunterGame {
       x: x + t * dx,
       y: y + t * dy
     };
+  }
+  
+  getFishSpeed() {
+    const levelIndex = Math.min(this.playerLevel, this.fishSpeedRanges.length - 1);
+    const range = this.fishSpeedRanges[levelIndex];
+    return range.min + Math.random() * (range.max - range.min);
   }
 }
 
