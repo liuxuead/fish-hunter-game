@@ -40,6 +40,7 @@ class FishHunterGame {
     this.waveOffset = 0;
     this.reflections = [];
     this.scoreTexts = [];
+    this.predictedHits = 0;
     
     this.shootAudio = null;
     this.audioContext = null;
@@ -327,6 +328,7 @@ class FishHunterGame {
     this.lastShootTime = now;
     
     const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
+    this.predictedHits = this.predictHits(this.startX, this.startY, extendPoint.x, extendPoint.y);
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
@@ -419,6 +421,13 @@ class FishHunterGame {
       this.ctx.globalAlpha = 0.3 + this.breathingValue * 0.7;
       this.ctx.shadowColor = '#FFD700';
       this.ctx.shadowBlur = 5 + this.breathingValue * 30;
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 0;
+    }
+    
+    if (this.predictedHits >= 3) {
+      this.ctx.shadowColor = '#FF0000';
+      this.ctx.shadowBlur = 20;
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
     }
@@ -656,6 +665,14 @@ class FishHunterGame {
       this.ctx.save();
       this.ctx.translate(currentX, currentY);
       this.ctx.rotate(anim.angle);
+      
+      if (this.predictedHits >= 3) {
+        this.ctx.shadowColor = '#FF0000';
+        this.ctx.shadowBlur = 20;
+        this.ctx.shadowOffsetX = 0;
+        this.ctx.shadowOffsetY = 0;
+      }
+      
       const currentWeaponImage = this.playerLevel === 0 ? this.fishImage : this.fishImage2;
       this.ctx.drawImage(
         currentWeaponImage,
@@ -704,6 +721,36 @@ class FishHunterGame {
     const levelIndex = Math.min(this.playerLevel, this.fishSpeedRanges.length - 1);
     const range = this.fishSpeedRanges[levelIndex];
     return range.min + Math.random() * (range.max - range.min);
+  }
+  
+  predictHits(startX, startY, endX, endY) {
+    let hitCount = 0;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    
+    if (length === 0) return 0;
+    
+    const dirX = dx / length;
+    const dirY = dy / length;
+    
+    for (const ball of this.balls) {
+      const ballDx = ball.x - startX;
+      const ballDy = ball.y - startY;
+      const projection = ballDx * dirX + ballDy * dirY;
+      
+      if (projection < 0 || projection > length) continue;
+      
+      const closestX = startX + dirX * projection;
+      const closestY = startY + dirY * projection;
+      const distance = Math.sqrt((ball.x - closestX) ** 2 + (ball.y - closestY) ** 2);
+      
+      if (distance < ball.radius + 20) {
+        hitCount++;
+      }
+    }
+    
+    return hitCount;
   }
   
   addScoreText(x, y, text) {
