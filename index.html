@@ -119,12 +119,31 @@
     
     weaponSelector.addEventListener('click', function() {
       weaponOptions.style.display = weaponOptions.style.display === 'block' ? 'none' : 'block';
+      updateWeaponLockState();
     });
+    
+    function updateWeaponLockState() {
+      weaponImages.forEach(img => {
+        const weaponIndex = parseInt(img.dataset.weapon);
+        if (window.game && !window.game.isWeaponUnlocked(weaponIndex)) {
+          img.style.opacity = '0.3';
+          img.style.filter = 'grayscale(100%)';
+          img.title = '需要3级解锁';
+        } else {
+          img.style.opacity = '1';
+          img.style.filter = 'none';
+          img.title = '';
+        }
+      });
+    }
     
     weaponImages.forEach(img => {
       img.addEventListener('click', function() {
         const weaponIndex = parseInt(this.dataset.weapon);
         if (window.game) {
+          if (!window.game.isWeaponUnlocked(weaponIndex)) {
+            return;
+          }
           window.game.selectWeapon(weaponIndex);
         }
         weaponImages.forEach(i => i.classList.remove('selected'));
