@@ -2,6 +2,7 @@ class FishHunterGame {
   constructor() {
     this.canvas = document.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
+    window.game = this;
     
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -36,6 +37,7 @@ class FishHunterGame {
     this.currentX = 0;
     this.currentY = 0;
     this.score = 9;
+    this.totalScore = 0;
     
     this.waveOffset = 0;
     this.reflections = [];
@@ -319,7 +321,8 @@ class FishHunterGame {
     const isHorizontalSwipe = dx > 0 && Math.abs(dy) < 120 && distance > 120;
     
     if (isHorizontalSwipe) {
-      this.score = 9;
+      const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
+      this.score = maxAmmo;
       return;
     }
     
@@ -553,7 +556,7 @@ class FishHunterGame {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
-    this.ctx.fillText(`分: ${this.score}`, 10, 50);
+    this.ctx.fillText(`分: ${this.totalScore}`, 10, 50);
     
     const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
     const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
@@ -627,12 +630,12 @@ class FishHunterGame {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
         
         if (closestBall.isRedBall) {
-          this.score += 5;
+          this.totalScore += 5;
           this.bigFishKilled++;
           
           // 更新玩家等级
           for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.score >= this.levelThresholds[i]) {
+            if (this.totalScore >= this.levelThresholds[i]) {
               this.playerLevel = i;
               break;
             }
@@ -651,12 +654,12 @@ class FishHunterGame {
           // 添加得分文字动画
           this.addScoreText(closestBall.x, closestBall.y, '+5');
         } else {
-          this.score++;
+          this.totalScore++;
           this.fishKilled++;
           
           // 更新玩家等级
           for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.score >= this.levelThresholds[i]) {
+            if (this.totalScore >= this.levelThresholds[i]) {
               this.playerLevel = i;
               break;
             }
@@ -667,12 +670,6 @@ class FishHunterGame {
           
           // 添加得分文字动画
           this.addScoreText(closestBall.x, closestBall.y, '+1');
-          
-          // 检查弹药上限
-          const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
-          if (this.score > maxAmmo) {
-            this.score = maxAmmo;
-          }
         }
       }
       
@@ -739,6 +736,7 @@ class FishHunterGame {
   
   selectWeapon(weaponIndex) {
     this.selectedWeapon = weaponIndex;
+    console.log('武器已切换到:', weaponIndex);
   }
   
   getCurrentWeaponImage() {
