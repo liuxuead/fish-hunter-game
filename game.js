@@ -76,7 +76,7 @@ class FishHunterGame {
     
     this.maxAmmoPerLevel = [5, 9, 15, 20, 20, 20, 20, 20, 20, 20, 20];
     
-    this.selectedWeapon = 0;
+    this.selectedWeapon = 1;
     this.weaponImages = [null, null];
     this.showWeaponSelector = false;
     
@@ -809,8 +809,19 @@ class FishHunterGame {
   }
   
   selectWeapon(weaponIndex) {
+    if (weaponIndex === 0 && this.playerLevel < 3) {
+      console.log('武器1需要3级解锁');
+      return;
+    }
     this.selectedWeapon = weaponIndex;
     console.log('武器已切换到:', weaponIndex);
+  }
+  
+  isWeaponUnlocked(weaponIndex) {
+    if (weaponIndex === 0) {
+      return this.playerLevel >= 3;
+    }
+    return true;
   }
   
   getCurrentWeaponImage() {
@@ -962,6 +973,7 @@ class FishHunterGame {
     this.score = 9;
     this.totalScore = 0;
     this.playerLevel = 0;
+    this.selectedWeapon = 1;
     this.balls = [];
     this.animations = [];
     this.bigFishKilled = 0;
