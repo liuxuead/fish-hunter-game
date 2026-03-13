@@ -83,6 +83,9 @@ class FishHunterGame {
     this.health = 100;
     this.maxHealth = 100;
     
+    this.isGameOver = false;
+    this.isVictory = false;
+    
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
     
@@ -274,6 +277,12 @@ class FishHunterGame {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     
+    if (this.isGameOver) {
+      const touch = e.changedTouches[0];
+      this.checkRestartButtonClick(touch.clientX, touch.clientY);
+      return;
+    }
+    
     if (this.isTwoFinger) {
       this.handleTwoFingerSwipe();
       this.isTwoFinger = false;
@@ -303,6 +312,12 @@ class FishHunterGame {
   handleMouseUp(e) {
     if (!this.isDrawing) return;
     this.isDrawing = false;
+    
+    if (this.isGameOver) {
+      this.checkRestartButtonClick(e.clientX, e.clientY);
+      return;
+    }
+    
     this.processSwipe(e.clientX, e.clientY);
   }
   
@@ -518,6 +533,11 @@ class FishHunterGame {
   runAnimationLoop() {
     if (!this.ctx) return;
     
+    if (this.isGameOver) {
+      this.drawGameOverScreen();
+      return;
+    }
+    
     const imgWidth = 60;
     const imgHeight = 60;
     const now = Date.now();
@@ -612,7 +632,8 @@ class FishHunterGame {
         }
         
         if (this.health <= 0) {
-          this.resetGame();
+          this.health = 0;
+          this.isGameOver = true;
         }
         return false;
       }
@@ -684,6 +705,11 @@ class FishHunterGame {
             }
           }
           
+          if (this.playerLevel >= 10 && !this.isVictory) {
+            this.isVictory = true;
+            this.isGameOver = true;
+          }
+          
           // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
           this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
           
@@ -706,6 +732,11 @@ class FishHunterGame {
               this.playerLevel = i;
               break;
             }
+          }
+          
+          if (this.playerLevel >= 10 && !this.isVictory) {
+            this.isVictory = true;
+            this.isGameOver = true;
           }
           
           // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
@@ -863,6 +894,81 @@ class FishHunterGame {
       this.ctx.fillText(text.text, text.x, text.y);
       this.ctx.restore();
     });
+  }
+  
+  drawGameOverScreen() {
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    
+    if (this.isVictory) {
+      this.ctx.fillStyle = '#FFD700';
+      this.ctx.font = '48px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('恭喜通关！', this.canvasWidth / 2, this.canvasHeight / 2 - 80);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = '24px Arial';
+      this.ctx.fillText(`最终得分: ${this.totalScore}`, this.canvasWidth / 2, this.canvasHeight / 2 - 20);
+      this.ctx.fillText(`击杀小鱼: ${this.fishKilled}`, this.canvasWidth / 2, this.canvasHeight / 2 + 20);
+      this.ctx.fillText(`击杀大鱼: ${this.bigFishKilled}`, this.canvasWidth / 2, this.canvasHeight / 2 + 60);
+    } else {
+      this.ctx.fillStyle = '#ff0000';
+      this.ctx.font = '48px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('游戏结束', this.canvasWidth / 2, this.canvasHeight / 2 - 60);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = '24px Arial';
+      this.ctx.fillText(`最终得分: ${this.totalScore}`, this.canvasWidth / 2, this.canvasHeight / 2);
+      this.ctx.fillText(`达到等级: ${this.playerLevel}`, this.canvasWidth / 2, this.canvasHeight / 2 + 40);
+    }
+    
+    this.drawRestartButton();
+  }
+  
+  drawRestartButton() {
+    const btnWidth = 200;
+    const btnHeight = 60;
+    const btnX = this.canvasWidth / 2 - btnWidth / 2;
+    const btnY = this.canvasHeight / 2 + 100;
+    
+    this.restartBtnRect = { x: btnX, y: btnY, width: btnWidth, height: btnHeight };
+    
+    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+    
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+    
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = '24px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('重新开始', this.canvasWidth / 2, btnY + 40);
+  }
+  
+  checkRestartButtonClick(x, y) {
+    if (!this.restartBtnRect) return;
+    const { x: btnX, y: btnY, width, height } = this.restartBtnRect;
+    if (x >= btnX && x <= btnX + width && y >= btnY && y <= btnY + height) {
+      this.restartGame();
+    }
+  }
+  
+  restartGame() {
+    this.isGameOver = false;
+    this.isVictory = false;
+    this.health = this.maxHealth;
+    this.score = 9;
+    this.totalScore = 0;
+    this.playerLevel = 0;
+    this.balls = [];
+    this.animations = [];
+    this.bigFishKilled = 0;
+    this.bigFishTriggers = 0;
+    this.fishKilled = 0;
+    this.shootCooldown = 1000;
+    this.runAnimationLoop();
   }
 }
 
