@@ -52,21 +52,22 @@
     #weaponSelector {
       position: fixed;
       top: 10px;
-      left: 50%;
+      left: calc(50% - 50px);
       transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px 12px;
+      width: 50px;
+      height: 50px;
+      background-image: url('images/baoxiang.png');
+      background-size: cover;
+      background-position: center;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
       z-index: 100;
     }
     
     #weaponOptions {
       position: fixed;
-      top: 50px;
-      left: 50%;
+      top: 70px;
+      left: calc(50% - 50px);
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.8);
       border-radius: 8px;
@@ -96,7 +97,7 @@
 <body>
   <div class="loading" id="loading">加载中...</div>
   <canvas id="gameCanvas"></canvas>
-  <div id="weaponSelector">选择武器</div>
+  <div id="weaponSelector"></div>
   <div id="weaponOptions">
     <img src="images/yucha.png" data-weapon="0" alt="武器1">
     <img src="images/yucha2.png" data-weapon="1" alt="武器2">
