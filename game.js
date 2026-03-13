@@ -72,6 +72,12 @@ class FishHunterGame {
       { min: 0.6, max: 0.8 }     // 10级
     ];
     
+    this.maxAmmoPerLevel = [5, 9, 15, 20, 20, 20, 20, 20, 20, 20, 20];
+    
+    this.selectedWeapon = 0;
+    this.weaponImages = [null, null];
+    this.showWeaponSelector = false;
+    
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
     
@@ -115,6 +121,8 @@ class FishHunterGame {
     try {
       this.fishImage = await loadImage('images/yucha.png');
       this.fishImage2 = await loadImage('images/yucha2.png');
+      this.weaponImages[0] = this.fishImage;
+      this.weaponImages[1] = this.fishImage2;
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
@@ -432,7 +440,7 @@ class FishHunterGame {
       this.ctx.shadowOffsetY = 0;
     }
     
-    const currentWeaponImage = this.playerLevel === 0 ? this.fishImage : this.fishImage2;
+    const currentWeaponImage = this.getCurrentWeaponImage();
     this.ctx.drawImage(
       currentWeaponImage,
       -staticWidth / 2,
@@ -659,6 +667,12 @@ class FishHunterGame {
           
           // 添加得分文字动画
           this.addScoreText(closestBall.x, closestBall.y, '+1');
+          
+          // 检查弹药上限
+          const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
+          if (this.score > maxAmmo) {
+            this.score = maxAmmo;
+          }
         }
       }
       
@@ -673,7 +687,7 @@ class FishHunterGame {
         this.ctx.shadowOffsetY = 0;
       }
       
-      const currentWeaponImage = this.playerLevel === 0 ? this.fishImage : this.fishImage2;
+      const currentWeaponImage = this.getCurrentWeaponImage();
       this.ctx.drawImage(
         currentWeaponImage,
         -imgWidth / 2,
@@ -721,6 +735,14 @@ class FishHunterGame {
     const levelIndex = Math.min(this.playerLevel, this.fishSpeedRanges.length - 1);
     const range = this.fishSpeedRanges[levelIndex];
     return range.min + Math.random() * (range.max - range.min);
+  }
+  
+  selectWeapon(weaponIndex) {
+    this.selectedWeapon = weaponIndex;
+  }
+  
+  getCurrentWeaponImage() {
+    return this.weaponImages[this.selectedWeapon] || this.weaponImages[0];
   }
   
   predictHits(startX, startY, endX, endY) {
