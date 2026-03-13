@@ -80,6 +80,9 @@ class FishHunterGame {
     this.weaponImages = [null, null];
     this.showWeaponSelector = false;
     
+    this.health = 100;
+    this.maxHealth = 100;
+    
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
     
@@ -567,10 +570,50 @@ class FishHunterGame {
     this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
     this.ctx.restore();
     
+    // 绘制血条
+    const healthBarWidth = 200;
+    const healthBarHeight = 20;
+    const healthBarX = this.canvasWidth - healthBarWidth - 10;
+    const healthBarY = 25;
+    
+    this.ctx.save();
+    
+    // 血条背景
+    this.ctx.fillStyle = '#333333';
+    this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+    
+    // 血条填充
+    const healthPercentage = Math.max(0, this.health / this.maxHealth);
+    const healthColor = healthPercentage > 0.5 ? '#00ff00' : healthPercentage > 0.2 ? '#ffff00' : '#ff0000';
+    this.ctx.fillStyle = healthColor;
+    this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercentage, healthBarHeight);
+    
+    // 血条边框
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+    
+    // 血条文字
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(`${Math.round(this.health)}/${this.maxHealth}`, healthBarX + healthBarWidth / 2, healthBarY + healthBarHeight - 4);
+    
+    this.ctx.restore();
+    
     this.balls = this.balls.filter(ball => {
       ball.y += ball.speed;
       
       if (ball.y > this.canvasHeight) {
+        if (ball.isRedBall) {
+          this.health -= 5;
+        } else {
+          this.health -= 1;
+        }
+        
+        if (this.health <= 0) {
+          this.resetGame();
+        }
         return false;
       }
       
@@ -741,6 +784,19 @@ class FishHunterGame {
   
   getCurrentWeaponImage() {
     return this.weaponImages[this.selectedWeapon] || this.weaponImages[0];
+  }
+  
+  resetGame() {
+    this.score = 9;
+    this.totalScore = 0;
+    this.health = 100;
+    this.fishKilled = 0;
+    this.bigFishKilled = 0;
+    this.bigFishTriggers = 0;
+    this.playerLevel = 0;
+    this.balls = [];
+    this.animations = [];
+    this.scoreTexts = [];
   }
   
   predictHits(startX, startY, endX, endY) {
