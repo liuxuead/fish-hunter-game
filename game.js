@@ -786,7 +786,7 @@ class FishHunterGame {
           this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
           
           if (this.boss.health <= 0) {
-            const bossScore = Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1);
+            const bossScore = this.boss.maxHealth;
             this.totalScore += bossScore;
             this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
             this.boss = null;
@@ -949,13 +949,20 @@ class FishHunterGame {
     }
     
     const bossSize = 100;
+    let bossHealth;
+    if (this.playerLevel === 3) {
+      bossHealth = 20; // 3→4级 20次
+    } else {
+      bossHealth = 20 + (this.playerLevel - 3) * 20; // 每级+20次
+    }
+    
     this.boss = {
       x: this.canvasWidth / 2,
       y: -bossSize,
       width: bossSize,
       height: bossSize,
-      health: Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1),
-      maxHealth: Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1),
+      health: bossHealth,
+      maxHealth: bossHealth,
       speed: this.canvasHeight / 3600, // 1分钟下落
       direction: 1,
       amplitude: 100,
