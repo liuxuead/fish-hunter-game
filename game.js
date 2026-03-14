@@ -86,6 +86,10 @@ class FishHunterGame {
     this.isGameOver = false;
     this.isVictory = false;
     
+    this.boss = null;
+    this.bossActive = false;
+    this.bossAppearedForLevel = new Set();
+    
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
     
@@ -135,6 +139,8 @@ class FishHunterGame {
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
       this.jiaxueImage = await loadImage('images/jiaxue.png');
+      this.boss3Image = await loadImage('images/boss3.png');
+      this.boss4Image = await loadImage('images/boss4.png');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -180,6 +186,10 @@ class FishHunterGame {
   }
   
   addBall() {
+    if (this.checkBossSpawn()) {
+      return;
+    }
+    
     const rand = Math.random();
     let ballType = 'normal';
     if (rand > 0.9) {
@@ -691,6 +701,56 @@ class FishHunterGame {
       return true;
     });
     
+    // 绘制和更新 BOSS
+    if (this.bossActive && this.boss) {
+      const elapsed = Date.now() - this.boss.startTime;
+      
+      // 左右移动
+      this.boss.x = this.canvasWidth / 2 + Math.sin(elapsed * this.boss.frequency) * this.boss.amplitude;
+      
+      // 下落
+      this.boss.y += this.boss.speed;
+      
+      // 绘制 BOSS
+      this.ctx.save();
+      this.ctx.translate(this.boss.x, this.boss.y);
+      this.ctx.drawImage(
+        this.boss.image,
+        -this.boss.width / 2,
+        -this.boss.height / 2,
+        this.boss.width,
+        this.boss.height
+      );
+      this.ctx.restore();
+      
+      // 绘制 BOSS 血条
+      const healthBarWidth = this.boss.width;
+      const healthBarHeight = 10;
+      const healthBarX = this.boss.x - healthBarWidth / 2;
+      const healthBarY = this.boss.y - this.boss.height / 2 - 20;
+      
+      this.ctx.save();
+      this.ctx.fillStyle = '#333333';
+      this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+      
+      const healthPercentage = this.boss.health / this.boss.maxHealth;
+      this.ctx.fillStyle = healthPercentage > 0.5 ? '#00ff00' : healthPercentage > 0.2 ? '#ffff00' : '#ff0000';
+      this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercentage, healthBarHeight);
+      
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+      this.ctx.restore();
+      
+      // 检测 BOSS 是否逃出屏幕
+      if (this.boss.y > this.canvasHeight + this.boss.height) {
+        this.boss = null;
+        this.bossActive = false;
+        this.health = 0; // BOSS 逃出直接血量归零
+        this.isGameOver = true;
+      }
+    }
+    
     this.animations = this.animations.filter(anim => {
       const elapsed = now - anim.startTime;
       const progress = Math.min(elapsed / anim.duration, 1);
@@ -709,6 +769,29 @@ class FishHunterGame {
         if (distance < minDistance) {
           minDistance = distance;
           closestBall = ball;
+        }
+      }
+      
+      // 检测是否击中 BOSS
+      if (this.bossActive && this.boss) {
+        const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
+        const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
+        
+        const bossCenterX = this.boss.x;
+        const bossCenterY = this.boss.y;
+        const distance = Math.sqrt((headX - bossCenterX) ** 2 + (headY - bossCenterY) ** 2);
+        
+        if (distance < this.boss.width / 2) {
+          this.boss.health--;
+          this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
+          
+          if (this.boss.health <= 0) {
+            const bossScore = Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1);
+            this.totalScore += bossScore;
+            this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
+            this.boss = null;
+            this.bossActive = false;
+          }
         }
       }
       
@@ -833,6 +916,56 @@ class FishHunterGame {
     const levelIndex = Math.min(this.playerLevel, this.fishSpeedRanges.length - 1);
     const range = this.fishSpeedRanges[levelIndex];
     return range.min + Math.random() * (range.max - range.min);
+  }
+  
+  checkBossSpawn() {
+    if (this.playerLevel < 3 || this.bossActive) {
+      return false;
+    }
+    
+    if (this.bossAppearedForLevel.has(this.playerLevel)) {
+      return false;
+    }
+    
+    const currentThreshold = this.levelThresholds[this.playerLevel];
+    const nextThreshold = this.levelThresholds[this.playerLevel + 1];
+    const scoreDiff = nextThreshold - currentThreshold;
+    const bossSpawnThreshold = currentThreshold + scoreDiff * 0.9;
+    
+    if (this.totalScore >= bossSpawnThreshold) {
+      this.spawnBoss();
+      return true;
+    }
+    
+    return false;
+  }
+  
+  spawnBoss() {
+    let bossImage;
+    if (this.playerLevel === 3) {
+      bossImage = this.boss3Image;
+    } else {
+      bossImage = this.boss4Image;
+    }
+    
+    const bossSize = 100;
+    this.boss = {
+      x: this.canvasWidth / 2,
+      y: -bossSize,
+      width: bossSize,
+      height: bossSize,
+      health: Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1),
+      maxHealth: Math.round((this.levelThresholds[this.playerLevel + 1] - this.levelThresholds[this.playerLevel]) * 0.1),
+      speed: this.canvasHeight / 3600, // 1分钟下落
+      direction: 1,
+      amplitude: 100,
+      frequency: 0.005,
+      startTime: Date.now(),
+      image: bossImage
+    };
+    
+    this.bossActive = true;
+    this.bossAppearedForLevel.add(this.playerLevel);
   }
   
   selectWeapon(weaponIndex) {
@@ -1010,6 +1143,9 @@ class FishHunterGame {
     this.bigFishKilled = 0;
     this.bigFishTriggers = 0;
     this.fishKilled = 0;
+    this.boss = null;
+    this.bossActive = false;
+    this.bossAppearedForLevel.clear();
     this.shootCooldown = 1000;
     this.runAnimationLoop();
   }
