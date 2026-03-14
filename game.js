@@ -141,6 +141,13 @@ class FishHunterGame {
       this.jiaxueImage = await loadImage('images/jiaxue.png');
       this.boss3Image = await loadImage('images/boss3.png');
       this.boss4Image = await loadImage('images/boss4.png');
+      this.boss5Image = await loadImage('images/boss5.png');
+      this.boss6Image = await loadImage('images/boss6.png');
+      this.boss7Image = await loadImage('images/boss7.png');
+      this.boss8Image = await loadImage('images/boss8.png');
+      this.boss9Image = await loadImage('images/boss9.png');
+      this.boss10Image = await loadImage('images/boss10.png');
+      this.boss11Image = await loadImage('images/boss11.png');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -946,8 +953,22 @@ class FishHunterGame {
     let bossImage;
     if (this.playerLevel === 3) {
       bossImage = this.boss3Image;
-    } else {
+    } else if (this.playerLevel === 4) {
       bossImage = this.boss4Image;
+    } else if (this.playerLevel === 5) {
+      bossImage = this.boss5Image;
+    } else if (this.playerLevel === 6) {
+      bossImage = this.boss6Image;
+    } else if (this.playerLevel === 7) {
+      bossImage = this.boss7Image;
+    } else if (this.playerLevel === 8) {
+      bossImage = this.boss8Image;
+    } else if (this.playerLevel === 9) {
+      bossImage = this.boss9Image;
+    } else if (this.playerLevel === 10) {
+      bossImage = this.boss11Image;
+    } else {
+      bossImage = this.boss10Image;
     }
     
     const bossSize = 100;
@@ -965,7 +986,7 @@ class FishHunterGame {
       height: bossSize,
       health: bossHealth,
       maxHealth: bossHealth,
-      speed: this.canvasHeight / 3600, // 1分钟下落
+      speed: this.canvasHeight / 7200, // 2分钟下落
       direction: 1,
       amplitude: 100,
       frequency: 0.005,
