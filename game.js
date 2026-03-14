@@ -134,6 +134,7 @@ class FishHunterGame {
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
+      this.jiaxueImage = await loadImage('images/jiaxue.png');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -179,8 +180,15 @@ class FishHunterGame {
   }
   
   addBall() {
-    const isRedBall = Math.random() > 0.7;
-    const radius = isRedBall ? 15 * 1.5 : 15;
+    const rand = Math.random();
+    let ballType = 'normal';
+    if (rand > 0.9) {
+      ballType = 'jiaxue';
+    } else if (rand > 0.7) {
+      ballType = 'red';
+    }
+    
+    const radius = ballType === 'red' ? 15 * 1.5 : 15;
     const minDistance = 40;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -223,7 +231,8 @@ class FishHunterGame {
           id: Date.now() + Math.random(),
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
           speed: this.getFishSpeed(),
-          isRedBall: isRedBall
+          ballType: ballType,
+          isRedBall: ballType === 'red'
         });
         
         if (this.bubbleAudio) {
@@ -638,7 +647,20 @@ class FishHunterGame {
         return false;
       }
       
-      if (ball.isRedBall && this.bigFishImage) {
+      if (ball.ballType === 'jiaxue' && this.jiaxueImage) {
+        const ballSize = ball.radius * 2;
+        this.ctx.save();
+        this.ctx.translate(ball.x, ball.y);
+        this.ctx.rotate(ball.angle || 0);
+        this.ctx.drawImage(
+          this.jiaxueImage,
+          -ballSize / 2,
+          -ballSize / 2,
+          ballSize,
+          ballSize
+        );
+        this.ctx.restore();
+      } else if (ball.isRedBall && this.bigFishImage) {
         const ballSize = ball.radius * 2;
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
@@ -693,7 +715,11 @@ class FishHunterGame {
       if (closestBall && minDistance < 20) {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
         
-        if (closestBall.isRedBall) {
+        if (closestBall.ballType === 'jiaxue') {
+          this.totalScore += 1;
+          this.health = Math.min(this.maxHealth, this.health + 10);
+          this.addScoreText(closestBall.x, closestBall.y, '+1 血量+10');
+        } else if (closestBall.isRedBall) {
           this.totalScore += 5;
           this.bigFishKilled++;
           
