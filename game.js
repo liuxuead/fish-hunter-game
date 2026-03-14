@@ -718,7 +718,8 @@ class FishHunterGame {
         if (closestBall.ballType === 'jiaxue') {
           this.totalScore += 1;
           this.health = Math.min(100, this.health + 10);
-          this.addScoreText(closestBall.x, closestBall.y, '+1 血量+10');
+          this.addScoreText(closestBall.x, closestBall.y - 10, '+1', '#ff0000');
+          this.addScoreText(closestBall.x, closestBall.y + 10, '+10', '#00ff00');
         } else if (closestBall.isRedBall) {
           this.totalScore += 5;
           this.bigFishKilled++;
@@ -897,11 +898,12 @@ class FishHunterGame {
     return hitCount;
   }
   
-  addScoreText(x, y, text) {
+  addScoreText(x, y, text, color = '#ff0000') {
     this.scoreTexts.push({
       x,
       y,
       text,
+      color,
       startTime: Date.now(),
       duration: 1000,
       ySpeed: -2,
@@ -926,7 +928,10 @@ class FishHunterGame {
     this.scoreTexts.forEach(text => {
       this.ctx.save();
       this.ctx.font = '20px Arial';
-      this.ctx.fillStyle = `rgba(255, 0, 0, ${text.opacity})`;
+      const r = parseInt(text.color.slice(1, 3), 16);
+      const g = parseInt(text.color.slice(3, 5), 16);
+      const b = parseInt(text.color.slice(5, 7), 16);
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${text.opacity})`;
       this.ctx.textAlign = 'center';
       this.ctx.fillText(text.text, text.x, text.y);
       this.ctx.restore();
