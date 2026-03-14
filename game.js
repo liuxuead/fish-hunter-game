@@ -717,7 +717,7 @@ class FishHunterGame {
         
         if (closestBall.ballType === 'jiaxue') {
           this.totalScore += 1;
-          this.health = Math.min(this.maxHealth, this.health + 10);
+          this.health = Math.min(100, this.health + 10);
           this.addScoreText(closestBall.x, closestBall.y, '+1 血量+10');
         } else if (closestBall.isRedBall) {
           this.totalScore += 5;
