@@ -449,7 +449,8 @@ class FishHunterGame {
       endY,
       angle: Math.atan2(dy, dx) + Math.PI / 2,
       startTime: Date.now(),
-      duration: 2000
+      duration: 2000,
+      hasHitBoss: false
     };
     
     this.animations.push(animation);
@@ -773,7 +774,7 @@ class FishHunterGame {
       }
       
       // 检测是否击中 BOSS
-      if (this.bossActive && this.boss) {
+      if (this.bossActive && this.boss && !anim.hasHitBoss) {
         const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
         const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
         
@@ -784,6 +785,7 @@ class FishHunterGame {
         if (distance < this.boss.width / 2) {
           this.boss.health--;
           this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
+          anim.hasHitBoss = true;
           
           if (this.boss.health <= 0) {
             const bossScore = this.boss.maxHealth;
