@@ -38,6 +38,7 @@ class FishHunterGame {
     this.currentY = 0;
     this.score = 9;
     this.totalScore = 0;
+    this.highScore = this.getHighScore();
     
     this.waveOffset = 0;
     this.reflections = [];
@@ -606,7 +607,7 @@ class FishHunterGame {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'left';
     this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
-    this.ctx.fillText(`分: ${this.totalScore}`, 10, 50);
+    this.ctx.fillText(`分: ${this.totalScore}/${this.highScore}`, 10, 50);
     
     const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
     const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
@@ -661,6 +662,7 @@ class FishHunterGame {
         if (this.health <= 0) {
           this.health = 0;
           this.isGameOver = true;
+          this.updateHighScore();
         }
         return false;
       }
@@ -756,6 +758,7 @@ class FishHunterGame {
         this.bossActive = false;
         this.health = 0; // BOSS 逃出直接血量归零
         this.isGameOver = true;
+        this.updateHighScore();
       }
     }
     
@@ -827,6 +830,7 @@ class FishHunterGame {
           if (this.playerLevel >= 10 && !this.isVictory) {
             this.isVictory = true;
             this.isGameOver = true;
+            this.updateHighScore();
           }
           
           // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
@@ -856,6 +860,7 @@ class FishHunterGame {
           if (this.playerLevel >= 10 && !this.isVictory) {
             this.isVictory = true;
             this.isGameOver = true;
+            this.updateHighScore();
           }
           
           // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
@@ -1157,6 +1162,27 @@ class FishHunterGame {
     const { x: btnX, y: btnY, width, height } = this.restartBtnRect;
     if (x >= btnX && x <= btnX + width && y >= btnY && y <= btnY + height) {
       this.restartGame();
+    }
+  }
+  
+  getHighScore() {
+    try {
+      const stored = localStorage.getItem('fishHunterHighScore');
+      return stored ? parseInt(stored, 10) : 0;
+    } catch (e) {
+      console.error('读取最高分失败:', e);
+      return 0;
+    }
+  }
+
+  updateHighScore() {
+    if (this.totalScore > this.highScore) {
+      this.highScore = this.totalScore;
+      try {
+        localStorage.setItem('fishHunterHighScore', this.highScore.toString());
+      } catch (e) {
+        console.error('保存最高分失败:', e);
+      }
     }
   }
   
