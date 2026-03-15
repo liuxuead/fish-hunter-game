@@ -288,6 +288,7 @@ class FishHunterGame {
     this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
   
   handleTouchStart(e) {
@@ -337,6 +338,12 @@ class FishHunterGame {
   }
   
   handleMouseDown(e) {
+    if (e.button === 2) {
+      e.preventDefault();
+      this.handleTwoFingerSwipe();
+      return;
+    }
+    
     this.isDrawing = true;
     this.startX = e.clientX;
     this.startY = e.clientY;
