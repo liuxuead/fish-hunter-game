@@ -837,6 +837,10 @@ class FishHunterGame {
           this.health = Math.min(100, this.health + 10);
           this.addScoreText(closestBall.x, closestBall.y - 10, '+1', '#ff0000');
           this.addScoreText(closestBall.x, closestBall.y + 10, '+10', '#00ff00');
+          // 手机震动
+          if (navigator.vibrate) {
+            navigator.vibrate(200);
+          }
         } else if (closestBall.isRedBall) {
           this.totalScore += 5;
           this.bigFishKilled++;
