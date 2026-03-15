@@ -167,6 +167,7 @@ class FishHunterGame {
     
     this.bossAudio = new Audio('images/boss.mp3');
     this.bossAudio.preload = 'auto';
+    this.bossAudio.loop = true;
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
