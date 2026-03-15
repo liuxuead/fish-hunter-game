@@ -47,6 +47,7 @@ class FishHunterGame {
     
     this.shootAudio = null;
     this.dazhaoAudio = null;
+    this.bossAudio = null;
     this.audioContext = null;
     this.dazhaoPlaying = false;
     
@@ -163,6 +164,9 @@ class FishHunterGame {
     this.dazhaoAudio.addEventListener('ended', () => {
       this.dazhaoPlaying = false;
     });
+    
+    this.bossAudio = new Audio('images/boss.mp3');
+    this.bossAudio.preload = 'auto';
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
@@ -454,7 +458,7 @@ class FishHunterGame {
   addAnimation(startX, startY, endX, endY, dx, dy) {
     if (!this.fishImage) return;
     
-    if (this.shootAudio && !this.dazhaoPlaying) {
+    if (this.shootAudio) {
       this.shootAudio.currentTime = 0;
       this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
     }
@@ -765,6 +769,10 @@ class FishHunterGame {
       if (this.boss.y > this.canvasHeight + this.boss.height) {
         this.boss = null;
         this.bossActive = false;
+        if (this.bossAudio) {
+          this.bossAudio.pause();
+          this.bossAudio.currentTime = 0;
+        }
         this.health = 0; // BOSS 逃出直接血量归零
         this.isGameOver = true;
         this.updateHighScore();
@@ -812,6 +820,10 @@ class FishHunterGame {
             this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
             this.boss = null;
             this.bossActive = false;
+            if (this.bossAudio) {
+              this.bossAudio.pause();
+              this.bossAudio.currentTime = 0;
+            }
           }
         }
       }
@@ -1010,6 +1022,11 @@ class FishHunterGame {
     
     this.bossActive = true;
     this.bossAppearedForLevel.add(this.playerLevel);
+    
+    if (this.bossAudio) {
+      this.bossAudio.currentTime = 0;
+      this.bossAudio.play().catch(e => console.log('BOSS音频播放失败:', e));
+    }
   }
   
   selectWeapon(weaponIndex) {
