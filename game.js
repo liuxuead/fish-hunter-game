@@ -614,7 +614,7 @@ class FishHunterGame {
     this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishKilled}/${nextTarget}`, 10, 75);
     
     this.ctx.fillStyle = '#ffff00';
-    this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
+    // this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
     this.ctx.restore();
     
     // 绘制血条
