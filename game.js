@@ -46,7 +46,9 @@ class FishHunterGame {
     this.predictedHits = 0;
     
     this.shootAudio = null;
+    this.dazhaoAudio = null;
     this.audioContext = null;
+    this.dazhaoPlaying = false;
     
     this.touches = [];
     
@@ -155,6 +157,12 @@ class FishHunterGame {
     
     this.shootAudio = new Audio('images/fashe.mp3');
     this.shootAudio.preload = 'auto';
+    
+    this.dazhaoAudio = new Audio('images/dazhao.mp3');
+    this.dazhaoAudio.preload = 'auto';
+    this.dazhaoAudio.addEventListener('ended', () => {
+      this.dazhaoPlaying = false;
+    });
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
@@ -399,9 +407,10 @@ class FishHunterGame {
       this.score = 9;
     }
     
-    if (this.shootAudio) {
-      this.shootAudio.currentTime = 0;
-      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
+    if (this.dazhaoAudio) {
+      this.dazhaoAudio.currentTime = 0;
+      this.dazhaoAudio.play().catch(e => console.log('大招音频播放失败:', e));
+      this.dazhaoPlaying = true;
     }
     
     const centerX = this.canvasWidth / 2;
@@ -445,7 +454,7 @@ class FishHunterGame {
   addAnimation(startX, startY, endX, endY, dx, dy) {
     if (!this.fishImage) return;
     
-    if (this.shootAudio) {
+    if (this.shootAudio && !this.dazhaoPlaying) {
       this.shootAudio.currentTime = 0;
       this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
     }
