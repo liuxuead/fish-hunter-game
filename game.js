@@ -60,7 +60,7 @@ class FishHunterGame {
     
     this.playerLevel = 0;
     this.levelThresholds = [0, 10, 50, 100, 200, 400, 600, 900, 1300, 1600, 2000];
-    this.bigFishPerLevel = [3, 10, 10, 20, 50, 30, 40, 50, 100, 500, 1000];
+    this.bigFishPerLevel = [3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
     this.bigFishCurrentTarget = 0;
     
     this.maxFishPerLevel = [5, 5, 8, 10, 20, 30, 40, 40, 40, 40, 40];
