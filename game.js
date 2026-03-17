@@ -373,13 +373,16 @@ class FishHunterGame {
       return;
     }
     
-    const dx = endX - this.startX;
-    const dy = endY - this.startY;
+    let dx = endX - this.startX;
+    let dy = endY - this.startY;
+    let isClick = false;
     
     this.breathingImageIndex = -1;
     
     if (dx === 0 && dy === 0) {
-      return;
+      isClick = true;
+      dx = 0;
+      dy = -1;
     }
     
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -403,7 +406,7 @@ class FishHunterGame {
     this.score--;
     this.lastShootTime = now;
     
-    const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
+    const extendPoint = this.getExtendPoint(this.startX, this.startY, dx, dy);
     this.predictedHits = this.predictHits(this.startX, this.startY, extendPoint.x, extendPoint.y);
     this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
   }
