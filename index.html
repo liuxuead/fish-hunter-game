@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>暴走船头</title>
+  <title>飞鱼大作战</title>
   <style>
     * {
       margin: 0;
@@ -117,7 +117,22 @@
     const weaponOptions = document.getElementById('weaponOptions');
     const weaponImages = weaponOptions.querySelectorAll('img');
     
+    function updateWeaponSelectorState() {
+      if (window.game && window.game.playerLevel < 3) {
+        weaponSelector.style.opacity = '0.3';
+        weaponSelector.style.filter = 'grayscale(100%)';
+        weaponSelector.title = '需要3级解锁';
+      } else {
+        weaponSelector.style.opacity = '1';
+        weaponSelector.style.filter = 'none';
+        weaponSelector.title = '';
+      }
+    }
+    
     weaponSelector.addEventListener('click', function() {
+      if (window.game && window.game.playerLevel < 3) {
+        return;
+      }
       weaponOptions.style.display = weaponOptions.style.display === 'block' ? 'none' : 'block';
       updateWeaponLockState();
     });
@@ -136,6 +151,13 @@
         }
       });
     }
+    
+    // 初始化状态
+    updateWeaponSelectorState();
+    updateWeaponLockState();
+    
+    // 定期检查等级变化
+    setInterval(updateWeaponSelectorState, 1000);
     
     weaponImages.forEach(img => {
       img.addEventListener('click', function() {
