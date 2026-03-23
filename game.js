@@ -16,6 +16,7 @@ class FishHunterGame {
     this.ballImage = null;
     this.chuanImage = null;
     this.bigFishImage = null;
+    this.bhzImage = null;
     
     this.animations = [];
     this.animationRunning = false;
@@ -26,6 +27,8 @@ class FishHunterGame {
     this.closestBallId = null;
     this.originX = 0;
     this.originY = 0;
+    
+    this.lastClickTime = 0;
     
     this.flashState = true;
     this.flashTimer = null;
@@ -48,6 +51,7 @@ class FishHunterGame {
     this.shootAudio = null;
     this.dazhaoAudio = null;
     this.bossAudio = null;
+    this.meizidanAudio = null;
     this.audioContext = null;
     this.dazhaoPlaying = false;
     
@@ -120,8 +124,8 @@ class FishHunterGame {
     this.canvas.width = this.canvasWidth;
     this.canvas.height = this.canvasHeight;
     
-    this.originX = 0;
-    this.originY = this.canvasHeight * 0.875;
+    this.originX = this.canvasWidth / 2;
+    this.originY = this.canvasHeight * (2 / 3);
   }
   
   async loadResources() {
@@ -142,6 +146,7 @@ class FishHunterGame {
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
+      this.bhzImage = await loadImage('images/bhz.png');
       this.jiaxueImage = await loadImage('images/jiaxue.png');
       this.boss3Image = await loadImage('images/boss3.png');
       this.boss4Image = await loadImage('images/boss4.png');
@@ -168,6 +173,9 @@ class FishHunterGame {
     this.bossAudio = new Audio('images/boss.mp3');
     this.bossAudio.preload = 'auto';
     this.bossAudio.loop = true;
+    
+    this.meizidanAudio = new Audio('images/meizidan.mp3');
+    this.meizidanAudio.preload = 'auto';
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
@@ -288,6 +296,7 @@ class FishHunterGame {
     this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
   
   handleTouchStart(e) {
@@ -333,25 +342,76 @@ class FishHunterGame {
     const endX = touch.clientX;
     const endY = touch.clientY;
     
-    this.processSwipe(endX, endY);
+    this.processSwipe(endX, endY, true);
   }
   
   handleMouseDown(e) {
+    if (e.button === 2) {
+      e.preventDefault();
+      this.handleTwoFingerSwipe();
+      return;
+    }
+    
+    const now = Date.now();
+    const isDoubleClick = now - this.lastClickTime < 300;
+    this.lastClickTime = now;
+    
+    if (isDoubleClick) {
+      const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
+      this.score = maxAmmo;
+      return;
+    }
+    
     this.isDrawing = true;
     this.startX = e.clientX;
     this.startY = e.clientY;
+    
+    let closestBall = null;
+    let minDistance = Infinity;
+    const searchRadius = 30;
+    
+    for (const ball of this.balls) {
+      const distance = Math.sqrt((this.startX - ball.x) ** 2 + (this.startY - ball.y) ** 2);
+      if (distance <= searchRadius && distance < minDistance) {
+        minDistance = distance;
+        closestBall = ball;
+      }
+    }
+    
+    this.targetBall = closestBall;
     this.findClosestImage(this.startX, this.startY);
   }
   
   handleMouseMove(e) {
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+    
+    let hasTarget = false;
+    const searchRadius = 30;
+    
+    for (const ball of this.balls) {
+      const distance = Math.sqrt((mouseX - ball.x) ** 2 + (mouseY - ball.y) ** 2);
+      if (distance <= searchRadius) {
+        hasTarget = true;
+        break;
+      }
+    }
+    
+    if (hasTarget && this.bhzImage) {
+      this.canvas.style.cursor = 'url(images/bhz.png) 16 16, pointer';
+    } else {
+      this.canvas.style.cursor = 'default';
+    }
+    
     if (!this.isDrawing) return;
-    this.currentX = e.clientX;
-    this.currentY = e.clientY;
+    this.currentX = mouseX;
+    this.currentY = mouseY;
   }
   
   handleMouseUp(e) {
     if (!this.isDrawing) return;
     this.isDrawing = false;
+    this.targetBall = null;
     
     if (this.isGameOver) {
       this.checkRestartButtonClick(e.clientX, e.clientY);
@@ -361,22 +421,25 @@ class FishHunterGame {
     this.processSwipe(e.clientX, e.clientY);
   }
   
-  processSwipe(endX, endY) {
-    if (this.startY < this.canvasHeight / 2) {
+  processSwipe(endX, endY, isTouch = false) {
+    if (isTouch && this.startY < this.canvasHeight / 2) {
       return;
     }
     
-    const dx = endX - this.startX;
-    const dy = endY - this.startY;
+    let dx, dy;
+    
+    if (this.targetBall) {
+      dx = this.targetBall.x - this.startX;
+      dy = this.targetBall.y - this.startY;
+    } else {
+      dx = endX - this.startX;
+      dy = endY - this.startY;
+    }
     
     this.breathingImageIndex = -1;
     
-    if (dx === 0 && dy === 0) {
-      return;
-    }
-    
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const isHorizontalSwipe = dx > 0 && Math.abs(dy) < 120 && distance > 120;
+    const isHorizontalSwipe = isTouch && dx > 0 && Math.abs(dy) < 120 && distance > 120;
     
     if (isHorizontalSwipe) {
       const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
@@ -385,6 +448,10 @@ class FishHunterGame {
     }
     
     if (this.score <= 0) {
+      if (this.meizidanAudio) {
+        this.meizidanAudio.currentTime = 0;
+        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
+      }
       return;
     }
     
@@ -396,9 +463,11 @@ class FishHunterGame {
     this.score--;
     this.lastShootTime = now;
     
-    const extendPoint = this.getExtendPoint(endX, endY, dx, dy);
-    this.predictedHits = this.predictHits(this.startX, this.startY, extendPoint.x, extendPoint.y);
-    this.addAnimation(this.startX, this.startY, extendPoint.x, extendPoint.y, dx, dy);
+    const startX = this.startX;
+    const startY = this.startY;
+    const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
+    this.predictedHits = this.predictHits(startX, startY, extendPoint.x, extendPoint.y);
+    this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
