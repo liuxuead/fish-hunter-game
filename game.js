@@ -426,14 +426,30 @@ class FishHunterGame {
       return;
     }
     
-    let dx, dy;
+    let startX, startY, dx, dy;
     
-    if (this.targetBall) {
-      dx = this.targetBall.x - this.startX;
-      dy = this.targetBall.y - this.startY;
+    if (isTouch) {
+      startX = this.startX;
+      startY = this.startY;
+      
+      if (this.targetBall) {
+        dx = this.targetBall.x - startX;
+        dy = this.targetBall.y - startY;
+      } else {
+        dx = endX - startX;
+        dy = endY - startY;
+      }
     } else {
-      dx = endX - this.startX;
-      dy = endY - this.startY;
+      startX = this.originX;
+      startY = this.originY;
+      
+      if (this.targetBall) {
+        dx = this.targetBall.x - startX;
+        dy = this.targetBall.y - startY;
+      } else {
+        dx = endX - startX;
+        dy = endY - startY;
+      }
     }
     
     this.breathingImageIndex = -1;
@@ -463,8 +479,6 @@ class FishHunterGame {
     this.score--;
     this.lastShootTime = now;
     
-    const startX = this.startX;
-    const startY = this.startY;
     const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
     this.predictedHits = this.predictHits(startX, startY, extendPoint.x, extendPoint.y);
     this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
