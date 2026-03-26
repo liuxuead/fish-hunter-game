@@ -84,7 +84,7 @@ class FishHunterGame {
     
     this.maxAmmoPerLevel = [5, 9, 15, 20, 20, 20, 20, 20, 20, 20, 20];
     
-    this.selectedWeapon = 1;
+    this.selectedWeapon = 0;
     this.weaponImages = [null, null];
     this.showWeaponSelector = false;
     
@@ -143,7 +143,7 @@ class FishHunterGame {
       this.fishImage2 = await loadImage('images/yucha2.png');
       this.feidaoImage = await loadImage('images/feidao1.png');
       this.weaponImages[0] = this.feidaoImage || this.fishImage;
-      this.weaponImages[1] = this.fishImage2;
+      this.weaponImages[1] = this.fishImage2 || this.fishImage || this.feidaoImage;
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
@@ -539,6 +539,7 @@ class FishHunterGame {
       endX,
       endY,
       angle: Math.atan2(dy, dx) + Math.PI / 2,
+      rotation: 0,
       startTime: Date.now(),
       duration: 2000,
       hasHitBoss: false
@@ -967,9 +968,13 @@ class FishHunterGame {
         }
       }
       
+      // 更新旋转角度
+      anim.rotation += 0.1;
+      
       this.ctx.save();
       this.ctx.translate(currentX, currentY);
       this.ctx.rotate(anim.angle);
+      this.ctx.rotate(anim.rotation);
       
       if (this.predictedHits >= 3) {
         this.ctx.shadowColor = '#FF0000';
@@ -1105,16 +1110,16 @@ class FishHunterGame {
   }
   
   selectWeapon(weaponIndex) {
-    if (weaponIndex === 0 && this.playerLevel < 3) {
-      console.log('武器1需要3级解锁');
+    if (weaponIndex === 1 && this.playerLevel < 3) {
+      console.log('武器2需要3级解锁');
       return;
     }
     this.selectedWeapon = weaponIndex;
     console.log('武器已切换到:', weaponIndex);
   }
-  
+
   isWeaponUnlocked(weaponIndex) {
-    if (weaponIndex === 0) {
+    if (weaponIndex === 1) {
       return this.playerLevel >= 3;
     }
     return true;
@@ -1294,7 +1299,7 @@ class FishHunterGame {
     this.score = 9;
     this.totalScore = 0;
     this.playerLevel = 0;
-    this.selectedWeapon = 1;
+    this.selectedWeapon = 0;
     this.balls = [];
     this.animations = [];
     this.bigFishKilled = 0;

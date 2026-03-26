@@ -119,9 +119,9 @@
     
     function updateWeaponSelectorState() {
       if (window.game && window.game.playerLevel < 3) {
-        weaponSelector.style.opacity = '0.3';
-        weaponSelector.style.filter = 'grayscale(100%)';
-        weaponSelector.title = '需要3级解锁';
+        weaponSelector.style.opacity = '1';
+        weaponSelector.style.filter = 'none';
+        weaponSelector.title = '';
       } else {
         weaponSelector.style.opacity = '1';
         weaponSelector.style.filter = 'none';
@@ -130,9 +130,6 @@
     }
     
     weaponSelector.addEventListener('click', function() {
-      if (window.game && window.game.playerLevel < 3) {
-        return;
-      }
       weaponOptions.style.display = weaponOptions.style.display === 'block' ? 'none' : 'block';
       updateWeaponLockState();
     });
