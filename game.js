@@ -360,14 +360,6 @@ class FishHunterGame {
   }
   
   handleLongPress() {
-    if (this.score <= 0) {
-      if (this.meizidanAudio) {
-        this.meizidanAudio.currentTime = 0;
-        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
-      }
-      return;
-    }
-    
     if (this.selectedWeapon === 0) {
       this.handleFeidaoLongPress();
     } else if (this.selectedWeapon === 1) {
@@ -379,16 +371,6 @@ class FishHunterGame {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
     
-    if (this.score <= 0) {
-      if (this.meizidanAudio) {
-        this.meizidanAudio.currentTime = 0;
-        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
-      }
-      return;
-    }
-    
-    this.score--;
-    
     if (this.bossActive && this.boss) {
       this.feidaoAttackBoss();
     } else {
@@ -397,75 +379,69 @@ class FishHunterGame {
   }
   
   feidaoSnakeMove() {
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
+    
+    const weaponWidth = weaponImage.width || 60;
+    const weaponHeight = weaponImage.height || 60;
+    
     const startX = 50;
     const startY = this.canvasHeight - 50;
-    const weaponWidth = 60;
-    const weaponHeight = 60;
     
+    this.addSnakeAnimation(startX, startY, weaponHeight);
+  }
+  
+  addSnakeAnimation(startX, startY, stepHeight) {
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
+    
+    const weaponWidth = weaponImage.width || 60;
+    const weaponHeight = weaponImage.height || 60;
     let currentX = startX;
     let currentY = startY;
     let direction = 1;
     
-    const steps = [];
+    const animation = {
+      startX: currentX,
+      startY: currentY,
+      endX: currentX,
+      endY: -100,
+      dx: 0,
+      dy: -100 - startY,
+      angle: 0,
+      rotation: 0,
+      startTime: Date.now(),
+      duration: 3000,
+      snakePath: []
+    };
     
     while (currentY > -weaponHeight) {
-      steps.push({ x: currentX, y: currentY });
+      animation.snakePath.push({ x: currentX, y: currentY });
       
-      currentX += direction * (this.canvasWidth - 100);
-      currentY -= weaponHeight;
-      
-      steps.push({ x: currentX, y: currentY });
-      
-      currentY -= weaponHeight;
+      currentX = direction === 1 ? this.canvasWidth - 50 : 50;
+      currentY -= stepHeight;
       direction *= -1;
     }
     
-    this.createFeidaoAnimation(steps);
+    animation.snakePath.push({ x: currentX, y: -100 });
+    this.animations.push(animation);
   }
   
   feidaoAttackBoss() {
-    const weaponWidth = 60;
-    const boss = this.boss;
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
     
-    const steps = [];
+    const weaponHeight = weaponImage.height || 60;
     
-    for (let i = 0; i < 20; i++) {
-      const x = boss.x - boss.width / 2 + (i % 2) * boss.width;
-      const y = boss.y;
-      steps.push({ x, y });
-    }
+    const startX = 50;
+    const startY = this.canvasHeight - 50;
     
-    steps.push({ x: this.canvasWidth / 2, y: -100 });
-    
-    this.createFeidaoAnimation(steps);
-  }
-  
-  createFeidaoAnimation(steps) {
-    if (steps.length < 2) return;
-    
-    for (let i = 0; i < steps.length - 1; i++) {
-      const start = steps[i];
-      const end = steps[i + 1];
-      const dx = end.x - start.x;
-      const dy = end.y - start.y;
-      
-      this.addAnimation(start.x, start.y, end.x, end.y, dx, dy);
-    }
+    this.addSnakeAnimation(startX, startY, weaponHeight);
   }
   
   handleYuchaLongPress() {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
-    
-    if (this.score <= 0) {
-      if (this.meizidanAudio) {
-        this.meizidanAudio.currentTime = 0;
-        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
-      }
-      return;
-    }
-    
-    this.score--;
     
     if (this.bossActive && this.boss) {
       this.yuchaAttackBoss();
@@ -1053,8 +1029,28 @@ class FishHunterGame {
       const elapsed = now - anim.startTime;
       const progress = Math.min(elapsed / anim.duration, 1);
       
-      const currentX = anim.startX + (anim.endX - anim.startX) * progress;
-      const currentY = anim.startY + (anim.endY - anim.startY) * progress;
+      let currentX, currentY;
+      
+      if (anim.snakePath && anim.snakePath.length > 0) {
+        const pathProgress = progress * (anim.snakePath.length - 1);
+        const pathIndex = Math.floor(pathProgress);
+        const pathFraction = pathProgress - pathIndex;
+        
+        if (pathIndex < anim.snakePath.length - 1) {
+          const startPoint = anim.snakePath[pathIndex];
+          const endPoint = anim.snakePath[pathIndex + 1];
+          
+          currentX = startPoint.x + (endPoint.x - startPoint.x) * pathFraction;
+          currentY = startPoint.y + (endPoint.y - startPoint.y) * pathFraction;
+        } else {
+          const lastPoint = anim.snakePath[anim.snakePath.length - 1];
+          currentX = lastPoint.x;
+          currentY = lastPoint.y;
+        }
+      } else {
+        currentX = anim.startX + (anim.endX - anim.startX) * progress;
+        currentY = anim.startY + (anim.endY - anim.startY) * progress;
+      }
       
       const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
       const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
