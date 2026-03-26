@@ -52,8 +52,11 @@ class FishHunterGame {
     this.dazhaoAudio = null;
     this.bossAudio = null;
     this.meizidanAudio = null;
+    this.daoAudio = null;
     this.audioContext = null;
     this.dazhaoPlaying = false;
+    this.touchStartTime = 0;
+    this.longPressThreshold = 500;
     
     this.touches = [];
     
@@ -177,6 +180,9 @@ class FishHunterGame {
     
     this.meizidanAudio = new Audio('images/meizidan.mp3');
     this.meizidanAudio.preload = 'auto';
+    
+    this.daoAudio = new Audio('images/dao4.mp3');
+    this.daoAudio.preload = 'auto';
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
@@ -310,6 +316,7 @@ class FishHunterGame {
       const touch = e.touches[0];
       this.startX = touch.clientX;
       this.startY = touch.clientY;
+      this.touchStartTime = Date.now();
       this.findClosestImage(this.startX, this.startY);
     }
   }
@@ -343,7 +350,163 @@ class FishHunterGame {
     const endX = touch.clientX;
     const endY = touch.clientY;
     
+    const touchDuration = Date.now() - this.touchStartTime;
+    if (touchDuration >= this.longPressThreshold) {
+      this.handleLongPress();
+      return;
+    }
+    
     this.processSwipe(endX, endY, true);
+  }
+  
+  handleLongPress() {
+    if (this.score <= 0) {
+      if (this.meizidanAudio) {
+        this.meizidanAudio.currentTime = 0;
+        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
+      }
+      return;
+    }
+    
+    if (this.selectedWeapon === 0) {
+      this.handleFeidaoLongPress();
+    } else if (this.selectedWeapon === 1) {
+      this.handleYuchaLongPress();
+    }
+  }
+  
+  handleFeidaoLongPress() {
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
+    
+    this.score--;
+    
+    if (this.bossActive && this.boss) {
+      this.feidaoAttackBoss();
+    } else {
+      this.feidaoSnakeMove();
+    }
+  }
+  
+  feidaoSnakeMove() {
+    const startX = 50;
+    const startY = this.canvasHeight - 50;
+    const weaponWidth = 60;
+    const weaponHeight = 60;
+    
+    let currentX = startX;
+    let currentY = startY;
+    let direction = 1;
+    
+    const steps = [];
+    
+    while (currentY > -weaponHeight) {
+      steps.push({ x: currentX, y: currentY });
+      
+      currentX += direction * (this.canvasWidth - 100);
+      currentY -= weaponHeight;
+      
+      steps.push({ x: currentX, y: currentY });
+      
+      currentY -= weaponHeight;
+      direction *= -1;
+    }
+    
+    this.createFeidaoAnimation(steps);
+  }
+  
+  feidaoAttackBoss() {
+    const weaponWidth = 60;
+    const boss = this.boss;
+    
+    const steps = [];
+    
+    for (let i = 0; i < 20; i++) {
+      const x = boss.x - boss.width / 2 + (i % 2) * boss.width;
+      const y = boss.y;
+      steps.push({ x, y });
+    }
+    
+    steps.push({ x: this.canvasWidth / 2, y: -100 });
+    
+    this.createFeidaoAnimation(steps);
+  }
+  
+  createFeidaoAnimation(steps) {
+    if (steps.length < 2) return;
+    
+    for (let i = 0; i < steps.length - 1; i++) {
+      const start = steps[i];
+      const end = steps[i + 1];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      
+      this.addAnimation(start.x, start.y, end.x, end.y, dx, dy);
+    }
+  }
+  
+  handleYuchaLongPress() {
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
+    
+    this.score--;
+    
+    if (this.bossActive && this.boss) {
+      this.yuchaAttackBoss();
+    } else {
+      this.yuchaSpreadFire();
+    }
+  }
+  
+  yuchaSpreadFire() {
+    const weaponWidth = 60;
+    const startY = this.canvasHeight / 2;
+    
+    for (let i = 0; i < 20; i++) {
+      const startX = 50;
+      const endX = this.canvasWidth - 50;
+      const startY = 50 + i * weaponWidth;
+      
+      if (startY < this.canvasHeight - 50) {
+        this.addAnimation(startX, startY, endX, startY, endX - startX, 0);
+      }
+    }
+    
+    for (let i = 0; i < 20; i++) {
+      const startX = this.canvasWidth - 50;
+      const endX = 50;
+      const startY = 50 + i * weaponWidth;
+      
+      if (startY < this.canvasHeight - 50) {
+        this.addAnimation(startX, startY, endX, startY, endX - startX, 0);
+      }
+    }
+  }
+  
+  yuchaAttackBoss() {
+    const weaponWidth = 60;
+    const boss = this.boss;
+    
+    const positions = [
+      { x: 0, y: boss.y },
+      { x: this.canvasWidth, y: boss.y },
+      { x: boss.x, y: 0 },
+      { x: boss.x, y: this.canvasHeight }
+    ];
+    
+    positions.forEach(pos => {
+      for (let i = 0; i < 5; i++) {
+        const offsetX = (i - 2) * weaponWidth;
+        const offsetY = (i - 2) * weaponWidth;
+        const startX = pos.x + offsetX;
+        const startY = pos.y + offsetY;
+        
+        const dx = boss.x - startX;
+        const dy = boss.y - startY;
+        
+        this.addAnimation(startX, startY, boss.x, boss.y, dx, dy);
+      }
+    });
   }
   
   handleMouseDown(e) {
@@ -544,9 +707,12 @@ class FishHunterGame {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
     
-    if (this.shootAudio) {
+    if (this.selectedWeapon === 0 && this.daoAudio) {
+      this.daoAudio.currentTime = 0;
+      this.daoAudio.play().catch(e => console.log('dao音频播放失败:', e));
+    } else if (this.shootAudio) {
       this.shootAudio.currentTime = 0;
-      this.shootAudio.play().catch(e => console.log('音频播放失败:', e));
+      this.shootAudio.play().catch(e => console.log('发射音频播放失败:', e));
     }
     
     const animation = {
