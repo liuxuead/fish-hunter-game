@@ -379,6 +379,14 @@ class FishHunterGame {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
     
+    if (this.score <= 0) {
+      if (this.meizidanAudio) {
+        this.meizidanAudio.currentTime = 0;
+        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
+      }
+      return;
+    }
+    
     this.score--;
     
     if (this.bossActive && this.boss) {
@@ -448,6 +456,14 @@ class FishHunterGame {
   handleYuchaLongPress() {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
+    
+    if (this.score <= 0) {
+      if (this.meizidanAudio) {
+        this.meizidanAudio.currentTime = 0;
+        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
+      }
+      return;
+    }
     
     this.score--;
     
@@ -1150,13 +1166,17 @@ class FishHunterGame {
         }
       }
       
-      // 更新旋转角度
-      anim.rotation += 0.1;
+      // 只有 feidao 武器才旋转
+      if (this.selectedWeapon === 0) {
+        anim.rotation += 0.1;
+      }
       
       this.ctx.save();
       this.ctx.translate(currentX, currentY);
       this.ctx.rotate(anim.angle);
-      this.ctx.rotate(anim.rotation);
+      if (this.selectedWeapon === 0) {
+        this.ctx.rotate(anim.rotation);
+      }
       
       if (this.predictedHits >= 3) {
         this.ctx.shadowColor = '#FF0000';
