@@ -1151,20 +1151,16 @@ class FishHunterGame {
         const bossCenterY = this.boss.y;
         const distance = Math.sqrt((headX - bossCenterX) ** 2 + (headY - bossCenterY) ** 2);
         
-        // 对于feidao武器的蛇形移动，每次都在Boss范围内时都检测碰撞
-        if (distance < this.boss.width / 2) {
-          if (!anim.hasHitBoss) {
-            anim.hasHitBoss = true;
-            anim.bossHitCount = 0;
-          }
+        // 对于feidao武器的蛇形移动，从开始碰撞到结束直接算作20次击中
+        if (distance < this.boss.width / 2 && !anim.hasHitBoss) {
+          anim.hasHitBoss = true;
           
-          // 每次进入Boss范围都检测碰撞
-          if (!anim.lastBossHit || Date.now() - anim.lastBossHit > 100) {
-            this.boss.health--;
-            this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
-            anim.lastBossHit = Date.now();
-            anim.bossHitCount++;
-          }
+          // 直接扣除20点血
+          const hitCount = 20;
+          this.boss.health = Math.max(0, this.boss.health - hitCount);
+          
+          // 显示扣除20点血的文字
+          this.addScoreText(this.boss.x, this.boss.y, `-${hitCount}`, '#ff0000');
           
           if (this.boss.health <= 0) {
             const bossScore = this.boss.maxHealth;
