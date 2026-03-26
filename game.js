@@ -53,10 +53,12 @@ class FishHunterGame {
     this.bossAudio = null;
     this.meizidanAudio = null;
     this.daoAudio = null;
+    this.dao3Audio = null;
     this.audioContext = null;
     this.dazhaoPlaying = false;
     this.touchStartTime = 0;
     this.longPressThreshold = 500;
+    this.longPressTriggered = false;
     
     this.touches = [];
     
@@ -183,6 +185,9 @@ class FishHunterGame {
     
     this.daoAudio = new Audio('images/dao4.mp3');
     this.daoAudio.preload = 'auto';
+    
+    this.dao3Audio = new Audio('images/dao3.mp3');
+    this.dao3Audio.preload = 'auto';
     
     this.bubbleAudio = new Audio('images/qipao.mp3');
     this.bubbleAudio.preload = 'auto';
@@ -311,6 +316,7 @@ class FishHunterGame {
     this.touches = Array.from(e.touches);
     this.isDrawing = true;
     this.isTwoFinger = e.touches.length === 2;
+    this.longPressTriggered = false;
     
     if (!this.isTwoFinger) {
       const touch = e.touches[0];
@@ -327,6 +333,15 @@ class FishHunterGame {
     const touch = e.touches[0];
     this.currentX = touch.clientX;
     this.currentY = touch.clientY;
+    
+    // 检查长按时间，达到阈值立即触发
+    if (!this.longPressTriggered && !this.isTwoFinger) {
+      const touchDuration = Date.now() - this.touchStartTime;
+      if (touchDuration >= this.longPressThreshold) {
+        this.longPressTriggered = true;
+        this.handleLongPress();
+      }
+    }
   }
   
   handleTouchEnd(e) {
@@ -346,15 +361,14 @@ class FishHunterGame {
       return;
     }
     
+    // 如果已经触发过长按，不再处理普通发射
+    if (this.longPressTriggered) {
+      return;
+    }
+    
     const touch = e.changedTouches[0];
     const endX = touch.clientX;
     const endY = touch.clientY;
-    
-    const touchDuration = Date.now() - this.touchStartTime;
-    if (touchDuration >= this.longPressThreshold) {
-      this.handleLongPress();
-      return;
-    }
     
     this.processSwipe(endX, endY, true);
   }
@@ -370,6 +384,11 @@ class FishHunterGame {
   handleFeidaoLongPress() {
     const weaponImage = this.getCurrentWeaponImage();
     if (!weaponImage) return;
+    
+    if (this.daoAudio) {
+      this.daoAudio.currentTime = 0;
+      this.daoAudio.play().catch(e => console.log('dao音频播放失败:', e));
+    }
     
     if (this.bossActive && this.boss) {
       this.feidaoAttackBoss();
@@ -706,10 +725,12 @@ class FishHunterGame {
       this.score = 9;
     }
     
-    if (this.dazhaoAudio) {
-      this.dazhaoAudio.currentTime = 0;
-      this.dazhaoAudio.play().catch(e => console.log('大招音频播放失败:', e));
-      this.dazhaoPlaying = true;
+    if (this.selectedWeapon === 0 && this.daoAudio) {
+      this.daoAudio.currentTime = 0;
+      this.daoAudio.play().catch(e => console.log('dao4音频播放失败:', e));
+    } else if (this.selectedWeapon === 1 && this.dao3Audio) {
+      this.dao3Audio.currentTime = 0;
+      this.dao3Audio.play().catch(e => console.log('dao3音频播放失败:', e));
     }
     
     const centerX = this.canvasWidth / 2;
@@ -1122,7 +1143,7 @@ class FishHunterGame {
       }
       
       // 检测是否击中 BOSS
-      if (this.bossActive && this.boss && !anim.hasHitBoss) {
+      if (this.bossActive && this.boss) {
         const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
         const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
         
@@ -1130,10 +1151,20 @@ class FishHunterGame {
         const bossCenterY = this.boss.y;
         const distance = Math.sqrt((headX - bossCenterX) ** 2 + (headY - bossCenterY) ** 2);
         
+        // 对于feidao武器的蛇形移动，每次都在Boss范围内时都检测碰撞
         if (distance < this.boss.width / 2) {
-          this.boss.health--;
-          this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
-          anim.hasHitBoss = true;
+          if (!anim.hasHitBoss) {
+            anim.hasHitBoss = true;
+            anim.bossHitCount = 0;
+          }
+          
+          // 每次进入Boss范围都检测碰撞
+          if (!anim.lastBossHit || Date.now() - anim.lastBossHit > 100) {
+            this.boss.health--;
+            this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
+            anim.lastBossHit = Date.now();
+            anim.bossHitCount++;
+          }
           
           if (this.boss.health <= 0) {
             const bossScore = this.boss.maxHealth;
