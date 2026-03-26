@@ -415,6 +415,8 @@ class FishHunterGame {
       snakePath: []
     };
     
+    const halfStepHeight = stepHeight / 2;
+    
     while (currentY > -weaponHeight) {
       animation.snakePath.push({ x: currentX, y: currentY });
       
@@ -422,8 +424,8 @@ class FishHunterGame {
       currentX = direction === 1 ? this.canvasWidth - 50 : 50;
       animation.snakePath.push({ x: currentX, y: currentY });
       
-      // 垂直向上运动一个自身高度
-      currentY -= stepHeight;
+      // 垂直向上运动半个自身高度
+      currentY -= halfStepHeight;
       animation.snakePath.push({ x: currentX, y: currentY });
       
       direction *= -1;
@@ -439,29 +441,55 @@ class FishHunterGame {
     
     const weaponHeight = weaponImage.height || 60;
     const boss = this.boss;
+    let currentX = 50;
+    let currentY = this.canvasHeight - 50;
+    let direction = 1;
     
     const animation = {
-      startX: 50,
-      startY: this.canvasHeight - 50,
-      endX: this.canvasWidth / 2,
+      startX: currentX,
+      startY: currentY,
+      endX: currentX,
       endY: -100,
       angle: 0,
       rotation: 0,
       startTime: Date.now(),
-      duration: 2000,
+      duration: 3000,
       snakePath: [],
       hasHitBoss: false
     };
     
-    // 快速左右穿过 boss 20次
-    for (let i = 0; i < 20; i++) {
-      const x = boss.x - boss.width / 2 + (i % 2) * boss.width;
-      const y = boss.y;
-      animation.snakePath.push({ x, y });
+    const halfStepHeight = weaponHeight / 2;
+    let bossEncountered = false;
+    
+    // 先自然走蛇形
+    while (currentY > -weaponHeight) {
+      animation.snakePath.push({ x: currentX, y: currentY });
+      
+      // 检查是否遇到 boss
+      if (!bossEncountered && currentY <= boss.y + boss.height / 2 && currentY >= boss.y - boss.height / 2) {
+        bossEncountered = true;
+        
+        // 快速左右穿过 boss 20次
+        for (let i = 0; i < 20; i++) {
+          const x = boss.x - boss.width / 2 + (i % 2) * boss.width;
+          const y = boss.y;
+          animation.snakePath.push({ x, y });
+        }
+      }
+      
+      // 水平运动到左侧或右侧
+      currentX = direction === 1 ? this.canvasWidth - 50 : 50;
+      animation.snakePath.push({ x: currentX, y: currentY });
+      
+      // 垂直向上运动半个自身高度
+      currentY -= halfStepHeight;
+      animation.snakePath.push({ x: currentX, y: currentY });
+      
+      direction *= -1;
     }
     
     // 最终向上消失
-    animation.snakePath.push({ x: this.canvasWidth / 2, y: -100 });
+    animation.snakePath.push({ x: currentX, y: -100 });
     
     this.animations.push(animation);
   }
