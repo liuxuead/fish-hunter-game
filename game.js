@@ -490,7 +490,7 @@ class FishHunterGame {
         
         // 快速左右穿过 boss 20次
         for (let i = 0; i < 20; i++) {
-          const x = boss.x - boss.width / 2 + (i % 2) * boss.width;
+          const x = boss.x - boss.width / 2 - 100 + (i % 2) * (boss.width + 200);
           const y = boss.y;
           animation.snakePath.push({ x, y });
         }
@@ -1276,6 +1276,12 @@ class FishHunterGame {
         imgHeight
       );
       this.ctx.restore();
+      
+      // 动画结束时播放音效（仅yucha武器）
+      if (progress >= 1 && this.selectedWeapon === 1 && this.shootAudio) {
+        this.shootAudio.currentTime = 0;
+        this.shootAudio.play().catch(e => console.log('发射音频播放失败:', e));
+      }
       
       return progress < 1;
     });
