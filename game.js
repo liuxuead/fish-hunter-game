@@ -141,7 +141,8 @@ class FishHunterGame {
     try {
       this.fishImage = await loadImage('images/yucha.png');
       this.fishImage2 = await loadImage('images/yucha2.png');
-      this.weaponImages[0] = this.fishImage;
+      this.feidaoImage = await loadImage('images/feidao1.png');
+      this.weaponImages[0] = this.feidaoImage;
       this.weaponImages[1] = this.fishImage2;
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
