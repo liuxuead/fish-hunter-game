@@ -431,7 +431,8 @@ class FishHunterGame {
       rotation: 0,
       startTime: Date.now(),
       duration: 3000,
-      snakePath: []
+      snakePath: [],
+      weaponType: this.selectedWeapon
     };
     
     const halfStepHeight = stepHeight / 2;
@@ -474,7 +475,8 @@ class FishHunterGame {
       startTime: Date.now(),
       duration: 3000,
       snakePath: [],
-      hasHitBoss: false
+      hasHitBoss: false,
+      weaponType: this.selectedWeapon
     };
     
     const halfStepHeight = weaponHeight / 2;
@@ -792,7 +794,8 @@ class FishHunterGame {
       rotation: 0,
       startTime: Date.now(),
       duration: 2000,
-      hasHitBoss: false
+      hasHitBoss: false,
+      weaponType: this.selectedWeapon
     };
     
     this.animations.push(animation);
@@ -1151,26 +1154,53 @@ class FishHunterGame {
         const bossCenterY = this.boss.y;
         const distance = Math.sqrt((headX - bossCenterX) ** 2 + (headY - bossCenterY) ** 2);
         
-        // 对于feidao武器的蛇形移动，从开始碰撞到结束直接算作20次击中
-        if (distance < this.boss.width / 2 && !anim.hasHitBoss) {
-          anim.hasHitBoss = true;
-          
-          // 直接扣除20点血
-          const hitCount = 20;
-          this.boss.health = Math.max(0, this.boss.health - hitCount);
-          
-          // 显示扣除20点血的文字
-          this.addScoreText(this.boss.x, this.boss.y, `-${hitCount}`, '#ff0000');
-          
-          if (this.boss.health <= 0) {
-            const bossScore = this.boss.maxHealth;
-            this.totalScore += bossScore;
-            this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
-            this.boss = null;
-            this.bossActive = false;
-            if (this.bossAudio) {
-              this.bossAudio.pause();
-              this.bossAudio.currentTime = 0;
+        if (distance < this.boss.width / 2) {
+          if (anim.weaponType === 0) {
+            // feidao武器：从开始碰撞到结束直接算作20次击中
+            if (!anim.hasHitBoss) {
+              anim.hasHitBoss = true;
+              
+              // 直接扣除20点血
+              const hitCount = 20;
+              this.boss.health = Math.max(0, this.boss.health - hitCount);
+              
+              // 显示扣除20点血的文字
+              this.addScoreText(this.boss.x, this.boss.y, `-${hitCount}`, '#ff0000');
+              
+              if (this.boss.health <= 0) {
+                const bossScore = this.boss.maxHealth;
+                this.totalScore += bossScore;
+                this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
+                this.boss = null;
+                this.bossActive = false;
+                if (this.bossAudio) {
+                  this.bossAudio.pause();
+                  this.bossAudio.currentTime = 0;
+                }
+              }
+            }
+          } else {
+            // yucha武器：每一把碰到Boss都扣除1点血，武器消失
+            if (!anim.hasHitBoss) {
+              anim.hasHitBoss = true;
+              
+              // 扣除1点血
+              this.boss.health = Math.max(0, this.boss.health - 1);
+              
+              // 显示扣除1点血的文字
+              this.addScoreText(this.boss.x, this.boss.y, '-1', '#ff0000');
+              
+              if (this.boss.health <= 0) {
+                const bossScore = this.boss.maxHealth;
+                this.totalScore += bossScore;
+                this.addScoreText(this.boss.x, this.boss.y - 20, `+${bossScore}`, '#00ff00');
+                this.boss = null;
+                this.bossActive = false;
+                if (this.bossAudio) {
+                  this.bossAudio.pause();
+                  this.bossAudio.currentTime = 0;
+                }
+              }
             }
           }
         }
@@ -1277,6 +1307,11 @@ class FishHunterGame {
       if (progress >= 1 && this.selectedWeapon === 1 && this.shootAudio) {
         this.shootAudio.currentTime = 0;
         this.shootAudio.play().catch(e => console.log('发射音频播放失败:', e));
+      }
+      
+      // yucha武器碰到Boss后立即消失
+      if (anim.weaponType === 1 && anim.hasHitBoss) {
+        return false;
       }
       
       return progress < 1;
