@@ -142,7 +142,7 @@ class FishHunterGame {
       this.fishImage = await loadImage('images/yucha.png');
       this.fishImage2 = await loadImage('images/yucha2.png');
       this.feidaoImage = await loadImage('images/feidao1.png');
-      this.weaponImages[0] = this.feidaoImage;
+      this.weaponImages[0] = this.feidaoImage || this.fishImage;
       this.weaponImages[1] = this.fishImage2;
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
@@ -427,30 +427,14 @@ class FishHunterGame {
       return;
     }
     
-    let startX, startY, dx, dy;
+    let dx, dy;
     
-    if (isTouch) {
-      startX = this.startX;
-      startY = this.startY;
-      
-      if (this.targetBall) {
-        dx = this.targetBall.x - startX;
-        dy = this.targetBall.y - startY;
-      } else {
-        dx = endX - startX;
-        dy = endY - startY;
-      }
+    if (this.targetBall) {
+      dx = this.targetBall.x - this.originX;
+      dy = this.targetBall.y - this.originY;
     } else {
-      startX = this.originX;
-      startY = this.originY;
-      
-      if (this.targetBall) {
-        dx = this.targetBall.x - startX;
-        dy = this.targetBall.y - startY;
-      } else {
-        dx = endX - startX;
-        dy = endY - startY;
-      }
+      dx = endX - this.originX;
+      dy = endY - this.originY;
     }
     
     this.breathingImageIndex = -1;
@@ -480,9 +464,9 @@ class FishHunterGame {
     this.score--;
     this.lastShootTime = now;
     
-    const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
-    this.predictedHits = this.predictHits(startX, startY, extendPoint.x, extendPoint.y);
-    this.addAnimation(startX, startY, extendPoint.x, extendPoint.y, dx, dy);
+    const extendPoint = this.getExtendPoint(this.originX, this.originY, dx, dy);
+    this.predictedHits = this.predictHits(this.originX, this.originY, extendPoint.x, extendPoint.y);
+    this.addAnimation(this.originX, this.originY, extendPoint.x, extendPoint.y, dx, dy);
   }
   
   handleTwoFingerSwipe() {
@@ -541,7 +525,8 @@ class FishHunterGame {
   }
   
   addAnimation(startX, startY, endX, endY, dx, dy) {
-    if (!this.fishImage) return;
+    const weaponImage = this.getCurrentWeaponImage();
+    if (!weaponImage) return;
     
     if (this.shootAudio) {
       this.shootAudio.currentTime = 0;
@@ -674,7 +659,8 @@ class FishHunterGame {
     this.drawWaves();
     this.drawReflections();
     
-    if (this.fishImage) {
+    const currentWeaponImage = this.getCurrentWeaponImage();
+    if (currentWeaponImage) {
       const staticWidth = 60;
       const staticHeight = 120;
       
