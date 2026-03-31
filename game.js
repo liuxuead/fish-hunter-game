@@ -686,29 +686,11 @@ class FishHunterGame {
     
     this.breathingImageIndex = -1;
     
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const isHorizontalSwipe = isTouch && dx > 0 && Math.abs(dy) < 120 && distance > 120;
-    
-    if (isHorizontalSwipe) {
-      const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
-      this.score = maxAmmo;
-      return;
-    }
-    
-    if (this.score <= 0) {
-      if (this.meizidanAudio) {
-        this.meizidanAudio.currentTime = 0;
-        this.meizidanAudio.play().catch(e => console.log('没子弹音频播放失败:', e));
-      }
-      return;
-    }
-    
     const now = Date.now();
     if (now - this.lastShootTime < this.shootCooldown) {
       return;
     }
     
-    this.score--;
     this.lastShootTime = now;
     
     const extendPoint = this.getExtendPoint(startX, startY, dx, dy);
@@ -920,12 +902,13 @@ class FishHunterGame {
       
       this.drawStaticImage(0, this.originY, Math.PI * 2, staticWidth, staticHeight, 0);
       
-      this.ctx.save();
-      this.ctx.font = '20px Arial';
-      this.ctx.fillStyle = '#000000';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(this.score.toString(), 5, this.originY - staticHeight - 10);
-      this.ctx.restore();
+      // 隐藏子弹数字显示
+      // this.ctx.save();
+      // this.ctx.font = '20px Arial';
+      // this.ctx.fillStyle = '#000000';
+      // this.ctx.textAlign = 'center';
+      // this.ctx.fillText(this.score.toString(), 5, this.originY - staticHeight - 10);
+      // this.ctx.restore();
     }
     
     if (this.chuanImage) {
