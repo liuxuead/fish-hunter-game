@@ -90,7 +90,7 @@ class FishHunterGame {
     this.maxAmmoPerLevel = [5, 9, 15, 20, 20, 20, 20, 20, 20, 20, 20];
     
     this.selectedWeapon = 0;
-    this.weaponImages = [null, null];
+    this.weaponImages = [null, null, null, null]; // 4种武器：0-飞刀1, 1-鱼叉1, 2-飞刀2, 3-鱼叉2
     this.showWeaponSelector = false;
     
     this.health = 100;
@@ -98,13 +98,38 @@ class FishHunterGame {
     
     this.isGameOver = false;
     this.isVictory = false;
+    this.isPaused = false;
     
     this.boss = null;
     this.bossActive = false;
     this.bossAppearedForLevel = new Set();
     
+    // 说明书相关
+    this.showInstruction = false;
+    this.instructionScrollY = 0;
+    this.instructionBtnRect = null;
+    this.instructionCloseBtnRect = null;
+    
+    // 海盗船系统
+    this.haidao = null;
+    this.haidaoActive = false;
+    this.haidaoAppearedForLevel = new Set();
+    
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
+    
+    // 能量条系统
+    this.energyBar = {
+      dazhao: 100, // 大招能量 0-100，开始时补满
+      changan: 100, // 长按能量 0-100，开始时补满
+      dazhaoMax: 100,
+      changanMax: 100,
+      dazhaoRechargeRate: 100 / 20, // 20秒补满
+      changanRechargeRate: 100 / 40, // 40秒补满
+      dazhaoCost: 20, // 每次使用消耗20
+      changanCost: 50 // 每次使用消耗50
+    };
+    this.lastEnergyUpdateTime = Date.now();
     
     this.init();
   }
@@ -147,13 +172,22 @@ class FishHunterGame {
       this.fishImage = await loadImage('images/yucha.png');
       this.fishImage2 = await loadImage('images/yucha2.png');
       this.feidaoImage = await loadImage('images/feidao1.png');
+      this.feidaoImage2 = await loadImage('images/feidao2.png');
       this.weaponImages[0] = this.feidaoImage || this.fishImage;
-      this.weaponImages[1] = this.fishImage2 || this.fishImage || this.feidaoImage;
+      this.weaponImages[1] = this.fishImage || this.feidaoImage;
+      this.weaponImages[2] = this.feidaoImage2 || this.feidaoImage || this.fishImage;
+      this.weaponImages[3] = this.fishImage2 || this.fishImage || this.feidaoImage;
       this.ballImage = await loadImage('images/feiyu.png');
       this.chuanImage = await loadImage('images/chuan.png');
       this.bigFishImage = await loadImage('images/dayu.png');
       this.bhzImage = await loadImage('images/bhz.png');
       this.jiaxueImage = await loadImage('images/jiaxue.png');
+      this.xiaolongxiaImage = await loadImage('images/xiaolongxia.png');
+      this.zhangyuguaiImage = await loadImage('images/zhangyuguai.png');
+      this.haidaoImage = await loadImage('images/haidao.png');
+      this.haidaoImage1 = await loadImage('images/haidao1.png');
+      this.haidaoImage2 = await loadImage('images/haidao2.png');
+      this.haidaoImage3 = await loadImage('images/haidao3.png');
       this.boss3Image = await loadImage('images/boss3.png');
       this.boss4Image = await loadImage('images/boss4.png');
       this.boss5Image = await loadImage('images/boss5.png');
@@ -227,19 +261,28 @@ class FishHunterGame {
   }
   
   addBall() {
-    if (this.checkBossSpawn()) {
+    if (this.checkBossSpawn() || this.checkHaidaoSpawn()) {
       return;
     }
     
     const rand = Math.random();
     let ballType = 'normal';
-    if (rand > 0.9) {
+    if (rand > 0.95) {
       ballType = 'jiaxue';
+    } else if (rand > 0.85) {
+      ballType = 'zhangyuguai';
     } else if (rand > 0.7) {
+      ballType = 'xiaolongxia';
+    } else if (rand > 0.5) {
       ballType = 'red';
     }
     
-    const radius = ballType === 'red' ? 15 * 1.5 : 15;
+    let radius = 15;
+    if (ballType === 'red' || ballType === 'xiaolongxia') {
+      radius = 15 * 1.5;
+    } else if (ballType === 'zhangyuguai') {
+      radius = 15 * 2;
+    }
     const minDistance = 40;
     const maxAttempts = 100;
     const minAngleDiff = 5 * Math.PI / 180;
@@ -283,7 +326,12 @@ class FishHunterGame {
           angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
           speed: this.getFishSpeed(),
           ballType: ballType,
-          isRedBall: ballType === 'red'
+          isRedBall: ballType === 'red',
+          isXiaolongxia: ballType === 'xiaolongxia',
+          isZhangyuguai: ballType === 'zhangyuguai',
+          isJiaxue: ballType === 'jiaxue',
+          shootTimer: 0,
+          smokeTimer: 0
         });
         
         if (this.bubbleAudio) {
@@ -374,6 +422,12 @@ class FishHunterGame {
   }
   
   handleLongPress() {
+    if (this.energyBar.changan < this.energyBar.changanCost) {
+      return;
+    }
+    
+    this.energyBar.changan -= this.energyBar.changanCost;
+    
     if (this.selectedWeapon === 0) {
       this.handleFeidaoLongPress();
     } else if (this.selectedWeapon === 1) {
@@ -432,6 +486,8 @@ class FishHunterGame {
       startTime: Date.now(),
       duration: 3000,
       snakePath: [],
+      hasHitBoss: false,
+      hasHitHaidao: false,
       weaponType: this.selectedWeapon
     };
     
@@ -476,6 +532,7 @@ class FishHunterGame {
       duration: 3000,
       snakePath: [],
       hasHitBoss: false,
+      hasHitHaidao: false,
       weaponType: this.selectedWeapon
     };
     
@@ -580,7 +637,8 @@ class FishHunterGame {
   handleMouseDown(e) {
     if (e.button === 2) {
       e.preventDefault();
-      this.handleTwoFingerSwipe();
+      // 鼠标右键触发长按效果（对应移动端长按）
+      this.handleLongPress();
       return;
     }
     
@@ -589,8 +647,8 @@ class FishHunterGame {
     this.lastClickTime = now;
     
     if (isDoubleClick) {
-      const maxAmmo = this.maxAmmoPerLevel[Math.min(this.playerLevel, this.maxAmmoPerLevel.length - 1)];
-      this.score = maxAmmo;
+      // 双击鼠标左键触发大招
+      this.handleTwoFingerSwipe();
       return;
     }
     
@@ -650,7 +708,8 @@ class FishHunterGame {
       return;
     }
     
-    this.processSwipe(e.clientX, e.clientY);
+    // PC端：从固定点位到鼠标点击位置的连线
+    this.processSwipe(e.clientX, e.clientY, false);
   }
   
   processSwipe(endX, endY, isTouch = false) {
@@ -699,11 +758,11 @@ class FishHunterGame {
   }
   
   handleTwoFingerSwipe() {
-    if (this.bigFishTriggers <= 0) {
+    if (this.energyBar.dazhao < this.energyBar.dazhaoCost) {
       return;
     }
     
-    this.bigFishTriggers--;
+    this.energyBar.dazhao -= this.energyBar.dazhaoCost;
     
     if (this.score < 9) {
       this.score = 9;
@@ -777,6 +836,7 @@ class FishHunterGame {
       startTime: Date.now(),
       duration: 2000,
       hasHitBoss: false,
+      hasHitHaidao: false,
       weaponType: this.selectedWeapon
     };
     
@@ -885,9 +945,17 @@ class FishHunterGame {
       return;
     }
     
+    if (this.isPaused) {
+      requestAnimationFrame(() => this.runAnimationLoop());
+      return;
+    }
+    
     const imgWidth = 60;
     const imgHeight = 60;
     const now = Date.now();
+    
+    // 更新能量条
+    this.updateEnergyBars(now);
     
     this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     
@@ -923,21 +991,25 @@ class FishHunterGame {
       );
     }
     
+    // 显示分数，隐藏等级和大招显示
     this.ctx.save();
     this.ctx.font = '16px Arial';
     this.ctx.fillStyle = '#ffffff';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
-    this.ctx.fillText(`分: ${this.totalScore}/${this.highScore}`, 10, 50);
-    
-    const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
-    const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
-    this.ctx.fillStyle = '#ff6b6b';
-    this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishKilled}/${nextTarget}`, 10, 75);
-    
-    this.ctx.fillStyle = '#ffff00';
-    // this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
+    // this.ctx.fillText(`等级: ${this.playerLevel}`, 10, 25);
+    this.ctx.fillText(`分: ${this.totalScore}/${this.highScore}`, 10, 25);
+    // 
+    // const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
+    // const nextTarget = (this.bigFishTriggers + 1) * requiredPerTrigger;
+    // this.ctx.fillStyle = '#ff6b6b';
+    // this.ctx.fillText(`大招: ${this.bigFishTriggers}/${this.bigFishKilled}/${nextTarget}`, 10, 75);
+    // 
+    // this.ctx.fillStyle = '#ffff00';
+    // // this.ctx.fillText(`冷却: ${Math.round(this.shootCooldown)}ms`, 10, 100);
     this.ctx.restore();
+    
+    // 显示能量条
+    this.drawEnergyBars();
     
     // 绘制血条
     const healthBarWidth = 200;
@@ -995,6 +1067,32 @@ class FishHunterGame {
         this.ctx.rotate(ball.angle || 0);
         this.ctx.drawImage(
           this.jiaxueImage,
+          -ballSize / 2,
+          -ballSize / 2,
+          ballSize,
+          ballSize
+        );
+        this.ctx.restore();
+      } else if (ball.isXiaolongxia && this.xiaolongxiaImage) {
+        const ballSize = ball.radius * 2;
+        this.ctx.save();
+        this.ctx.translate(ball.x, ball.y);
+        this.ctx.rotate(ball.angle || 0);
+        this.ctx.drawImage(
+          this.xiaolongxiaImage,
+          -ballSize / 2,
+          -ballSize / 2,
+          ballSize,
+          ballSize
+        );
+        this.ctx.restore();
+      } else if (ball.isZhangyuguai && this.zhangyuguaiImage) {
+        const ballSize = ball.radius * 2;
+        this.ctx.save();
+        this.ctx.translate(ball.x, ball.y);
+        this.ctx.rotate(ball.angle || 0);
+        this.ctx.drawImage(
+          this.zhangyuguaiImage,
           -ballSize / 2,
           -ballSize / 2,
           ballSize,
@@ -1087,6 +1185,76 @@ class FishHunterGame {
       }
     }
     
+    // 绘制和更新海盗船
+    if (this.haidaoActive && this.haidao) {
+      const elapsed = Date.now() - this.haidao.startTime;
+      const now = Date.now();
+      
+      // 左右移动
+      this.haidao.x = this.canvasWidth / 2 + Math.sin(elapsed * this.haidao.frequency) * this.haidao.amplitude;
+      
+      // 下落
+      this.haidao.y += this.haidao.speed;
+      
+      // 海盗船特殊动作
+      if (now - this.haidao.lastActionTime > 3000) {
+        this.haidao.lastActionTime = now;
+        if (this.haidao.type === 'flash') {
+          // 闪现
+          this.haidao.x = Math.random() * (this.canvasWidth - this.haidao.width) + this.haidao.width / 2;
+        } else if (this.haidao.type === 'summon') {
+          // 召唤敌人
+          for (let i = 0; i < 3; i++) {
+            this.addBall();
+          }
+        }
+      }
+      
+      // 绘制海盗船
+      this.ctx.save();
+      this.ctx.translate(this.haidao.x, this.haidao.y);
+      this.ctx.drawImage(
+        this.haidao.image,
+        -this.haidao.width / 2,
+        -this.haidao.height / 2,
+        this.haidao.width,
+        this.haidao.height
+      );
+      this.ctx.restore();
+      
+      // 绘制海盗船血条
+      const healthBarWidth = this.haidao.width;
+      const healthBarHeight = 10;
+      const healthBarX = this.haidao.x - healthBarWidth / 2;
+      const healthBarY = this.haidao.y - this.haidao.height / 2 - 20;
+      
+      this.ctx.save();
+      this.ctx.fillStyle = '#333333';
+      this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+      
+      const healthPercentage = this.haidao.health / this.haidao.maxHealth;
+      this.ctx.fillStyle = healthPercentage > 0.5 ? '#00ff00' : healthPercentage > 0.2 ? '#ffff00' : '#ff0000';
+      this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercentage, healthBarHeight);
+      
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+      this.ctx.restore();
+      
+      // 检测海盗船是否逃出屏幕
+      if (this.haidao.y > this.canvasHeight + this.haidao.height) {
+        this.haidao = null;
+        this.haidaoActive = false;
+        if (this.bossAudio) {
+          this.bossAudio.pause();
+          this.bossAudio.currentTime = 0;
+        }
+        this.health = 0; // 海盗船逃出直接血量归零
+        this.isGameOver = true;
+        this.updateHighScore();
+      }
+    }
+    
     this.animations = this.animations.filter(anim => {
       const elapsed = now - anim.startTime;
       const progress = Math.min(elapsed / anim.duration, 1);
@@ -1139,15 +1307,15 @@ class FishHunterGame {
         
         if (distance < this.boss.width / 2) {
           if (anim.weaponType === 0) {
-            // feidao武器：从开始碰撞到结束直接算作20次击中
+            // feidao武器：每次碰撞扣除1点血
             if (!anim.hasHitBoss) {
               anim.hasHitBoss = true;
               
-              // 直接扣除20点血
-              const hitCount = 20;
+              // 扣除1点血
+              const hitCount = 1;
               this.boss.health = Math.max(0, this.boss.health - hitCount);
               
-              // 显示扣除20点血的文字
+              // 显示扣除1点血的文字
               this.addScoreText(this.boss.x, this.boss.y, `-${hitCount}`, '#ff0000');
               
               if (this.boss.health <= 0) {
@@ -1189,6 +1357,67 @@ class FishHunterGame {
         }
       }
       
+      // 检测是否击中海盗船
+      if (this.haidaoActive && this.haidao) {
+        const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
+        const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
+        
+        const haidaoCenterX = this.haidao.x;
+        const haidaoCenterY = this.haidao.y;
+        const distance = Math.sqrt((headX - haidaoCenterX) ** 2 + (headY - haidaoCenterY) ** 2);
+        
+        if (distance < this.haidao.width / 2) {
+          if (anim.weaponType === 0) {
+            // feidao武器：从开始碰撞到结束直接算作20次击中
+            if (!anim.hasHitHaidao) {
+              anim.hasHitHaidao = true;
+              
+              // 直接扣除20点血
+              const hitCount = 20;
+              this.haidao.health = Math.max(0, this.haidao.health - hitCount);
+              
+              // 显示扣除20点血的文字
+              this.addScoreText(this.haidao.x, this.haidao.y, `-${hitCount}`, '#ff0000');
+              
+              if (this.haidao.health <= 0) {
+                const haidaoScore = this.haidao.maxHealth;
+                this.totalScore += haidaoScore;
+                this.addScoreText(this.haidao.x, this.haidao.y - 20, `+${haidaoScore}`, '#00ff00');
+                this.haidao = null;
+                this.haidaoActive = false;
+                if (this.bossAudio) {
+                  this.bossAudio.pause();
+                  this.bossAudio.currentTime = 0;
+                }
+              }
+            }
+          } else {
+            // yucha武器：每一把碰到海盗船都扣除1点血，武器消失
+            if (!anim.hasHitHaidao) {
+              anim.hasHitHaidao = true;
+              
+              // 扣除1点血
+              this.haidao.health = Math.max(0, this.haidao.health - 1);
+              
+              // 显示扣除1点血的文字
+              this.addScoreText(this.haidao.x, this.haidao.y, '-1', '#ff0000');
+              
+              if (this.haidao.health <= 0) {
+                const haidaoScore = this.haidao.maxHealth;
+                this.totalScore += haidaoScore;
+                this.addScoreText(this.haidao.x, this.haidao.y - 20, `+${haidaoScore}`, '#00ff00');
+                this.haidao = null;
+                this.haidaoActive = false;
+                if (this.bossAudio) {
+                  this.bossAudio.pause();
+                  this.bossAudio.currentTime = 0;
+                }
+              }
+            }
+          }
+        }
+      }
+      
       if (closestBall && minDistance < 20) {
         this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
         
@@ -1201,6 +1430,52 @@ class FishHunterGame {
           if (navigator.vibrate) {
             navigator.vibrate(200);
           }
+        } else if (closestBall.isXiaolongxia) {
+          this.totalScore += 10;
+          this.fishKilled++;
+          
+          // 更新玩家等级
+          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
+            if (this.totalScore >= this.levelThresholds[i]) {
+              this.playerLevel = i;
+              break;
+            }
+          }
+          
+          if (this.playerLevel >= 10 && !this.isVictory) {
+            this.isVictory = true;
+            this.isGameOver = true;
+            this.updateHighScore();
+          }
+          
+          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
+          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
+          
+          // 添加得分文字动画
+          this.addScoreText(closestBall.x, closestBall.y, '+10');
+        } else if (closestBall.isZhangyuguai) {
+          this.totalScore += 20;
+          this.fishKilled++;
+          
+          // 更新玩家等级
+          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
+            if (this.totalScore >= this.levelThresholds[i]) {
+              this.playerLevel = i;
+              break;
+            }
+          }
+          
+          if (this.playerLevel >= 10 && !this.isVictory) {
+            this.isVictory = true;
+            this.isGameOver = true;
+            this.updateHighScore();
+          }
+          
+          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
+          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
+          
+          // 添加得分文字动画
+          this.addScoreText(closestBall.x, closestBall.y, '+20');
         } else if (closestBall.isRedBall) {
           this.totalScore += 5;
           this.bigFishKilled++;
@@ -1257,15 +1532,15 @@ class FishHunterGame {
         }
       }
       
-      // 只有 feidao 武器才旋转
-      if (this.selectedWeapon === 0) {
+      // feidao 武器旋转
+      if (this.selectedWeapon === 0 || this.selectedWeapon === 2) {
         anim.rotation += 0.1;
       }
       
       this.ctx.save();
       this.ctx.translate(currentX, currentY);
       this.ctx.rotate(anim.angle);
-      if (this.selectedWeapon === 0) {
+      if (this.selectedWeapon === 0 || this.selectedWeapon === 2) {
         this.ctx.rotate(anim.rotation);
       }
       
@@ -1338,7 +1613,7 @@ class FishHunterGame {
   }
   
   checkBossSpawn() {
-    if (this.playerLevel < 3 || this.bossActive) {
+    if (this.playerLevel < 3 || this.playerLevel >= 11 || this.bossActive) {
       return false;
     }
     
@@ -1353,6 +1628,28 @@ class FishHunterGame {
     
     if (this.totalScore >= bossSpawnThreshold) {
       this.spawnBoss();
+      return true;
+    }
+    
+    return false;
+  }
+  
+  checkHaidaoSpawn() {
+    if (this.playerLevel < 11 || this.haidaoActive || this.bossActive) {
+      return false;
+    }
+    
+    if (this.haidaoAppearedForLevel.has(this.playerLevel)) {
+      return false;
+    }
+    
+    const currentThreshold = this.levelThresholds[this.playerLevel];
+    const nextThreshold = this.levelThresholds[this.playerLevel + 1] || currentThreshold + 500;
+    const scoreDiff = nextThreshold - currentThreshold;
+    const haidaoSpawnThreshold = currentThreshold + scoreDiff * 0.9;
+    
+    if (this.totalScore >= haidaoSpawnThreshold) {
+      this.spawnHaidao();
       return true;
     }
     
@@ -1409,7 +1706,51 @@ class FishHunterGame {
     
     if (this.bossAudio) {
       this.bossAudio.currentTime = 0;
-      this.bossAudio.play().catch(e => console.log('BOSS音频播放失败:', e));
+      this.bossAudio.play().catch(e => console.log('Boss音频播放失败:', e));
+    }
+  }
+  
+  spawnHaidao() {
+    const haidaoTypes = [
+      { image: this.haidaoImage, type: 'flash' },
+      { image: this.haidaoImage1, type: 'summon' },
+      { image: this.haidaoImage2, type: 'defense' },
+      { image: this.haidaoImage3, type: 'flash' }
+    ];
+    
+    const randomType = haidaoTypes[Math.floor(Math.random() * haidaoTypes.length)];
+    const haidaoImage = randomType.image;
+    const haidaoType = randomType.type;
+    
+    if (!haidaoImage) return;
+    
+    const haidaoSize = 150;
+    const haidaoHealth = 200 + (this.playerLevel - 11) * 50;
+    
+    this.haidao = {
+      x: this.canvasWidth / 2,
+      y: -haidaoSize,
+      width: haidaoSize,
+      height: haidaoSize,
+      health: haidaoHealth,
+      maxHealth: haidaoHealth,
+      speed: this.canvasHeight / 9000,
+      direction: 1,
+      amplitude: 150,
+      frequency: 0.003,
+      type: haidaoType,
+      startTime: Date.now(),
+      actionTimer: 0,
+      lastActionTime: Date.now(),
+      image: haidaoImage
+    };
+    
+    this.haidaoActive = true;
+    this.haidaoAppearedForLevel.add(this.playerLevel);
+    
+    if (this.bossAudio) {
+      this.bossAudio.currentTime = 0;
+      this.bossAudio.play().catch(e => console.log('海盗船音频播放失败:', e));
     }
   }
   
@@ -1588,12 +1929,68 @@ class FishHunterGame {
   updateHighScore() {
     if (this.totalScore > this.highScore) {
       this.highScore = this.totalScore;
-      try {
-        localStorage.setItem('fishHunterHighScore', this.highScore.toString());
-      } catch (e) {
-        console.error('保存最高分失败:', e);
-      }
+      localStorage.setItem('fishHunterHighScore', this.highScore.toString());
     }
+  }
+  
+  updateEnergyBars(now) {
+    const deltaTime = (now - this.lastEnergyUpdateTime) / 1000; // 转换为秒
+    this.lastEnergyUpdateTime = now;
+    
+    // 更新大招能量
+    this.energyBar.dazhao = Math.min(
+      this.energyBar.dazhaoMax,
+      this.energyBar.dazhao + this.energyBar.dazhaoRechargeRate * deltaTime
+    );
+    
+    // 更新长按能量
+    this.energyBar.changan = Math.min(
+      this.energyBar.changanMax,
+      this.energyBar.changan + this.energyBar.changanRechargeRate * deltaTime
+    );
+  }
+  
+  drawEnergyBars() {
+    const energyBarWidth = 200;
+    const energyBarHeight = 15;
+    const energyBarX = this.canvasWidth - energyBarWidth - 10;
+    const energyBarY = 55;
+    
+    this.ctx.save();
+    
+    // 大招能量条
+    this.ctx.fillStyle = '#333333';
+    this.ctx.fillRect(energyBarX, energyBarY, energyBarWidth, energyBarHeight);
+    
+    const dazhaoPercentage = this.energyBar.dazhao / this.energyBar.dazhaoMax;
+    this.ctx.fillStyle = '#00ff00';
+    this.ctx.fillRect(energyBarX, energyBarY, energyBarWidth * dazhaoPercentage, energyBarHeight);
+    
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(energyBarX, energyBarY, energyBarWidth, energyBarHeight);
+    
+    // 长按能量条
+    const changanY = energyBarY + energyBarHeight + 10;
+    this.ctx.fillStyle = '#333333';
+    this.ctx.fillRect(energyBarX, changanY, energyBarWidth, energyBarHeight);
+    
+    const changanPercentage = this.energyBar.changan / this.energyBar.changanMax;
+    this.ctx.fillStyle = '#ffff00';
+    this.ctx.fillRect(energyBarX, changanY, energyBarWidth * changanPercentage, energyBarHeight);
+    
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(energyBarX, changanY, energyBarWidth, energyBarHeight);
+    
+    // 能量条文字
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(`大招: ${Math.round(this.energyBar.dazhao)}/${this.energyBar.dazhaoMax}`, energyBarX + energyBarWidth / 2, energyBarY + energyBarHeight - 3);
+    this.ctx.fillText(`长按: ${Math.round(this.energyBar.changan)}/${this.energyBar.changanMax}`, energyBarX + energyBarWidth / 2, changanY + energyBarHeight - 3);
+    
+    this.ctx.restore();
   }
   
   restartGame() {
@@ -1613,6 +2010,9 @@ class FishHunterGame {
     this.bossActive = false;
     this.bossAppearedForLevel.clear();
     this.shootCooldown = 1000;
+    // 重置能量条为补满状态
+    this.energyBar.dazhao = 100;
+    this.energyBar.changan = 100;
     this.runAnimationLoop();
   }
 }

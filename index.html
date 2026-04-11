@@ -64,6 +64,92 @@
       z-index: 100;
     }
     
+    #instructionBtn {
+      position: fixed;
+      top: 10px;
+      left: calc(50% - 110px);
+      transform: translateX(-50%);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #f5f5dc;
+      border: 2px solid #8b4513;
+      cursor: pointer;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #instructionBtn::before {
+      content: '';
+      position: absolute;
+      width: 4px;
+      height: 30px;
+      background-color: #8b4513;
+    }
+    
+    #instructionBtn::after {
+      content: '';
+      position: absolute;
+      width: 30px;
+      height: 24px;
+      background-color: #fffaf0;
+      border: 1px solid #8b4513;
+      left: 10px;
+      top: 13px;
+    }
+    
+    #instructionPanel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9);
+      z-index: 200;
+      display: none;
+      overflow-y: auto;
+    }
+    
+    #instructionContent {
+      max-width: 80%;
+      margin: 50px auto;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    
+    #instructionContent h1 {
+      color: #FFD700;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    #instructionContent h2 {
+      color: #4a90e2;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    
+    #instructionContent p {
+      margin-bottom: 15px;
+      line-height: 1.5;
+    }
+    
+    #closeInstruction {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      z-index: 201;
+    }
+    
     #weaponOptions {
       position: fixed;
       top: 70px;
@@ -97,12 +183,41 @@
 <body>
   <div class="loading" id="loading">加载中...</div>
   <canvas id="gameCanvas"></canvas>
+  <div id="instructionBtn"></div>
   <div id="weaponSelector"></div>
   <div id="weaponOptions">
     <img src="images/feidao1.png" data-weapon="0" alt="武器1">
     <img src="images/yucha2.png" data-weapon="1" alt="武器2">
+    <img src="images/feidao2.png" data-weapon="2" alt="武器3">
+    <img src="images/yucha.png" data-weapon="3" alt="武器4">
   </div>
   <div id="logControl">导出日志</div>
+  <div id="instructionPanel">
+    <button id="closeInstruction">关闭</button>
+    <div id="instructionContent">
+      <h1>游戏说明书</h1>
+      <h2>健康游戏忠告</h2>
+      <p>抵制不良游戏，拒绝盗版游戏。</p>
+      <p>注意自我保护，谨防受骗上当。</p>
+      <p>适度游戏益脑，沉迷游戏伤身。</p>
+      <p>合理安排时间，享受健康生活。</p>
+      
+      <h2>一.手势介绍</h2>
+      <p>1.单指滑动：发射武器</p>
+      <p>2.双指滑动：多发武器同时发射，从船头射向敌人</p>
+      <p>3.长按：大杀伤性发射</p>
+      
+      <h2>二.海怪介绍</h2>
+      <p>1.飞鱼怪，没有攻击力，击杀得1分</p>
+      <p>2.大鱼怪，没有攻击力，击杀得5分</p>
+      <p>3.小龙虾怪，发射子弹，每颗扣玩家1点血，击杀得10分</p>
+      <p>4.墨鱼怪，发射烟雾弹，保护海怪2秒，击杀得20分</p>
+      <p>5.小章鱼怪，没有攻击力，击杀可得1分加2点血</p>
+      
+      <h2>三.关卡介绍</h2>
+      <p>每关海怪数量和配比随着等级提升难度增加，需要合理使用武器</p>
+    </div>
+  </div>
   <script src="game.js"></script>
   <script>
     // 添加日志导出按钮事件
@@ -156,6 +271,35 @@
         this.classList.add('selected');
         weaponOptions.style.display = 'none';
       });
+    });
+    
+    // 说明书按钮事件
+    const instructionBtn = document.getElementById('instructionBtn');
+    const instructionPanel = document.getElementById('instructionPanel');
+    const closeInstruction = document.getElementById('closeInstruction');
+    
+    instructionBtn.addEventListener('click', function() {
+      instructionPanel.style.display = 'block';
+      if (window.game) {
+        window.game.isPaused = true;
+      }
+    });
+    
+    closeInstruction.addEventListener('click', function() {
+      instructionPanel.style.display = 'none';
+      if (window.game) {
+        window.game.isPaused = false;
+      }
+    });
+    
+    // 点击说明书面板外部关闭
+    instructionPanel.addEventListener('click', function(e) {
+      if (e.target === instructionPanel) {
+        instructionPanel.style.display = 'none';
+        if (window.game) {
+          window.game.isPaused = false;
+        }
+      }
     });
   </script>
 </body>
