@@ -211,6 +211,13 @@ class FishHunterGame {
       this.boss8Image = await loadImage('images/boss8.png');
       this.boss9Image = await loadImage('images/boss9.png');
       this.boss10Image = await loadImage('images/boss10.png');
+      
+      // 输出资源加载成功信息
+      console.log('资源加载成功:');
+      console.log('chuanImage:', !!this.chuanImage);
+      console.log('ballImage:', !!this.ballImage);
+      console.log('xiaolongxiaImage:', !!this.xiaolongxiaImage);
+      console.log('zhangyuguaiImage:', !!this.zhangyuguaiImage);
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -298,53 +305,50 @@ class FishHunterGame {
       radius = 15 * 2;
     }
     const minDistance = 20; // 减小最小距离，让更多怪物可以同时存在
-    const maxAttempts = 50; // 减少最大尝试次数，提高性能
-    const minAngleDiff = 2 * Math.PI / 180; // 减小最小角度差，让怪物可以更密集地生成
+    const maxAttempts = 100; // 减少最大尝试次数，提高性能
     
-    // 快速生成位置，减少计算量
-    const x = radius + Math.random() * (this.canvasWidth - radius * 2);
-    const y = radius + Math.random() * (this.canvasHeight / 2 - radius * 2);
-    
-    // 简化碰撞检测，只检查最近的几个球
-    let valid = true;
-    const nearbyBalls = this.balls.filter(ball => {
-      const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
-      return dist < 100; // 只检查100像素内的球
-    });
-    
-    for (const ball of nearbyBalls) {
-      const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
-      if (dist < minDistance) {
-        valid = false;
-        break;
-      }
-    }
-    
-    if (valid) {
-      this.balls.push({
-        x,
-        y,
-        radius,
-        id: Date.now() + Math.random(),
-        angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-        speed: this.getFishSpeed(),
-        ballType: ballType,
-        isRedBall: ballType === 'red',
-        isXiaolongxia: ballType === 'xiaolongxia',
-        isZhangyuguai: ballType === 'zhangyuguai',
-        isJiaxue: ballType === 'jiaxue',
-        shootTimer: 0,
-        smokeTimer: 0
-      });
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const x = radius + Math.random() * (this.canvasWidth - radius * 2);
+      const y = radius + Math.random() * (this.canvasHeight / 2 - radius * 2);
       
-      if (this.bubbleAudio) {
-        this.bubbleAudio.currentTime = 0;
-        this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
+      let valid = true;
+      
+      // 简化碰撞检测，只检查最近的几个球
+      for (const ball of this.balls) {
+        const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
+        if (dist < minDistance) {
+          valid = false;
+          break;
+        }
       }
       
-      if (!this.animationRunning) {
-        this.animationRunning = true;
-        this.runAnimationLoop();
+      if (valid) {
+        this.balls.push({
+          x,
+          y,
+          radius,
+          id: Date.now() + Math.random(),
+          angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
+          speed: this.getFishSpeed(),
+          ballType: ballType,
+          isRedBall: ballType === 'red',
+          isXiaolongxia: ballType === 'xiaolongxia',
+          isZhangyuguai: ballType === 'zhangyuguai',
+          isJiaxue: ballType === 'jiaxue',
+          shootTimer: 0,
+          smokeTimer: 0
+        });
+        
+        if (this.bubbleAudio) {
+          this.bubbleAudio.currentTime = 0;
+          this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
+        }
+        
+        if (!this.animationRunning) {
+          this.animationRunning = true;
+          this.runAnimationLoop();
+        }
+        return;
       }
     }
   }
@@ -986,10 +990,16 @@ class FishHunterGame {
     if (this.chuanImage) {
       const chuanWidth = 360;
       const chuanHeight = 240;
+      const chuanX = this.canvasWidth / 2 - chuanWidth / 2;
+      const chuanY = this.canvasHeight - chuanHeight;
+      
+      // 确保船头在屏幕内
+      const safeY = Math.min(chuanY, this.canvasHeight - 10);
+      
       this.ctx.drawImage(
         this.chuanImage,
-        this.canvasWidth / 2 - chuanWidth / 2,
-        this.canvasHeight - chuanHeight,
+        chuanX,
+        safeY,
         chuanWidth,
         chuanHeight
       );
@@ -1254,7 +1264,7 @@ class FishHunterGame {
           ballSize
         );
         this.ctx.restore();
-      } else if (this.ballImage && !ball.isBullet) {
+      } else if (this.ballImage && !ball.isBullet && !ball.isSmoke) {
         const ballSize = ball.radius * 2;
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
