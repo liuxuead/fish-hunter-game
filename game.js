@@ -103,6 +103,8 @@ class FishHunterGame {
     this.boss = null;
     this.bossActive = false;
     this.bossAppearedForLevel = new Set();
+    this.nextBossLevel = 3; // 初始BOSS等级
+    this.bossSpawnEnabled = false; // 控制是否允许生成BOSS
     
     // 说明书相关
     this.showInstruction = false;
@@ -114,6 +116,7 @@ class FishHunterGame {
     this.haidao = null;
     this.haidaoActive = false;
     this.haidaoAppearedForLevel = new Set();
+    this.haidaoKilled = 0; // 记录消灭的海盗船数量
     
     this.shootCooldown = 1000;
     this.lastShootTime = 0;
@@ -145,6 +148,12 @@ class FishHunterGame {
       this.initReflections();
       this.bindEvents();
       this.runAnimationLoop();
+      
+      // 5秒后生成第一个boss
+      setTimeout(() => {
+        this.bossSpawnEnabled = true;
+        this.checkBossSpawn();
+      }, 5000);
     });
   }
   
@@ -196,7 +205,6 @@ class FishHunterGame {
       this.boss8Image = await loadImage('images/boss8.png');
       this.boss9Image = await loadImage('images/boss9.png');
       this.boss10Image = await loadImage('images/boss10.png');
-      this.boss11Image = await loadImage('images/boss11.png');
     } catch (e) {
       console.error('图片加载失败:', e);
     }
@@ -267,13 +275,13 @@ class FishHunterGame {
     
     const rand = Math.random();
     let ballType = 'normal';
-    if (rand > 0.95) {
+    if (rand > 0.8) {
       ballType = 'jiaxue';
-    } else if (rand > 0.85) {
+    } else if (rand > 0.6) {
       ballType = 'zhangyuguai';
-    } else if (rand > 0.7) {
+    } else if (rand > 0.4) {
       ballType = 'xiaolongxia';
-    } else if (rand > 0.5) {
+    } else if (rand > 0.2) {
       ballType = 'red';
     }
     
@@ -283,9 +291,9 @@ class FishHunterGame {
     } else if (ballType === 'zhangyuguai') {
       radius = 15 * 2;
     }
-    const minDistance = 40;
-    const maxAttempts = 100;
-    const minAngleDiff = 5 * Math.PI / 180;
+    const minDistance = 30; // 减小最小距离，让更多怪物可以同时存在
+    const maxAttempts = 200; // 增加最大尝试次数，提高生成成功率
+    const minAngleDiff = 3 * Math.PI / 180; // 减小最小角度差，让怪物可以更密集地生成
     
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const x = radius + Math.random() * (this.canvasWidth - radius * 2);
@@ -428,9 +436,9 @@ class FishHunterGame {
     
     this.energyBar.changan -= this.energyBar.changanCost;
     
-    if (this.selectedWeapon === 0) {
+    if (this.selectedWeapon === 0 || this.selectedWeapon === 2) {
       this.handleFeidaoLongPress();
-    } else if (this.selectedWeapon === 1) {
+    } else if (this.selectedWeapon === 1 || this.selectedWeapon === 3) {
       this.handleYuchaLongPress();
     }
   }
@@ -1042,13 +1050,138 @@ class FishHunterGame {
     
     this.ctx.restore();
     
-    this.balls = this.balls.filter(ball => {
-      ball.y += ball.speed;
-      
-      if (ball.y > this.canvasHeight) {
-        if (ball.isRedBall) {
-          this.health -= 5;
+    // 先更新所有球的位置和技能
+    this.balls.forEach(ball => {
+      if (ball.isSmoke) {
+        // 烟雾弹移动
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+        
+        // 检查烟雾弹是否接触到目标海怪
+        const targetBall = this.balls.find(b => b.id === ball.targetId);
+        if (targetBall) {
+          const dx = ball.x - targetBall.x;
+          const dy = ball.y - targetBall.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < ball.radius + targetBall.radius) {
+            // 为目标海怪添加保护效果
+            targetBall.protectedByZhangyuguai = true;
+            // 清除之前的保护计时器
+            if (targetBall.protectionTimer) {
+              clearTimeout(targetBall.protectionTimer);
+            }
+            // 设置保护持续时间为2秒
+            targetBall.protectionTimer = setTimeout(() => {
+              targetBall.protectedByZhangyuguai = false;
+            }, 2000);
+            
+            // 标记烟雾弹为已完成
+            ball.completed = true;
+          }
+        }
+      } else if (ball.isBullet) {
+        // BOSS子弹移动
+        if (ball.vx !== undefined && ball.vy !== undefined) {
+          ball.x += ball.vx;
+          ball.y += ball.vy;
         } else {
+          // 其他子弹移动
+          ball.y += ball.speed;
+        }
+      } else {
+        // 其他球的移动
+        ball.y += ball.speed;
+      }
+      
+      // 小龙虾技能：发射子弹
+      if (ball.isXiaolongxia) {
+        if (!ball.shootTimer) {
+          ball.shootTimer = 0;
+        }
+        ball.shootTimer += 16; // 假设每帧16ms
+        if (ball.shootTimer >= 10000) { // 每10秒发射一次
+          ball.shootTimer = 0;
+          // 发射子弹
+          this.balls.push({
+            x: ball.x,
+            y: ball.y + ball.radius,
+            radius: 6, // 恢复到合理大小
+            speed: 4, // 恢复到合理速度
+            color: '#ff4444', // 恢复到适中的红色
+            isBullet: true,
+            isXiaolongxia: false // 确保子弹不会被视为小龙虾
+          });
+        }
+      }
+      
+      // 乌贼怪技能：发射烟雾弹，飞向下方的海怪
+      if (ball.isZhangyuguai) {
+        if (!ball.smokeTimer) {
+          ball.smokeTimer = 0;
+        }
+        ball.smokeTimer += 16; // 假设每帧16ms
+        if (ball.smokeTimer >= 10000) { // 每10秒发射一次
+          ball.smokeTimer = 0;
+          // 找到所有非乌贼怪和小龙虾的海怪
+          const targetBalls = this.balls.filter(b => 
+            !b.isBullet && 
+            !b.isSmoke && 
+            !b.isZhangyuguai && 
+            !b.isXiaolongxia
+          );
+          
+          if (targetBalls.length > 0) {
+            // 随机选择一个海怪作为目标
+            const targetBall = targetBalls[Math.floor(Math.random() * targetBalls.length)];
+            // 计算烟雾弹的移动方向
+            let dx = targetBall.x - ball.x;
+            let dy = targetBall.y - ball.y;
+            
+            // 确保烟雾弹总是斜向发射，即使目标在正下方
+            if (Math.abs(dx) < 10) {
+              dx = (Math.random() - 0.5) * 50; // 添加随机水平偏移
+            }
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const speed = 3; // 烟雾弹速度
+            const vx = (dx / distance) * speed;
+            const vy = (dy / distance) * speed;
+            
+            // 发射烟雾弹
+            const smokeBall = {
+              x: ball.x,
+              y: ball.y + ball.radius,
+              radius: 8, // 烟雾弹大小
+              vx: vx,
+              vy: vy,
+              color: '#999999', // 适中的灰色
+              isSmoke: true,
+              targetId: targetBall.id, // 目标海怪的ID
+              isZhangyuguai: false // 确保烟雾弹不会被视为乌贼怪
+            };
+            
+            this.balls.push(smokeBall);
+            
+            // 调试：输出烟雾弹的速度和方向
+            console.log('烟雾弹发射:', { vx, vy, targetX: targetBall.x, targetY: targetBall.y, currentX: ball.x, currentY: ball.y });
+          }
+        }
+      }
+    });
+    
+    // 过滤掉出屏幕的球或已完成任务的烟雾弹
+    this.balls = this.balls.filter(ball => {
+      // 移除已完成任务的烟雾弹
+      if (ball.isSmoke && ball.completed) {
+        return false;
+      }
+      
+      // 移除出屏幕的球
+      if (ball.y > this.canvasHeight || ball.x < 0 || ball.x > this.canvasWidth) {
+        if (ball.isRedBall && !ball.isSmoke) {
+          this.health -= 5;
+        } else if (!ball.isBullet && !ball.isSmoke) {
           this.health -= 1;
         }
         
@@ -1059,7 +1192,23 @@ class FishHunterGame {
         }
         return false;
       }
+      return true;
+    });
+    
+    // 绘制所有球，先绘制怪物，再绘制技能效果，确保技能效果在上面
+    this.balls.forEach(ball => {
+      // 绘制被保护海怪的保护圈
+      if (ball.protectedByZhangyuguai) {
+        this.ctx.save();
+        this.ctx.strokeStyle = 'rgba(153, 153, 153, 0.8)';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(ball.x, ball.y, ball.radius + 5, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
       
+      // 绘制怪物
       if (ball.ballType === 'jiaxue' && this.jiaxueImage) {
         const ballSize = ball.radius * 2;
         this.ctx.save();
@@ -1112,7 +1261,7 @@ class FishHunterGame {
           ballSize
         );
         this.ctx.restore();
-      } else if (this.ballImage) {
+      } else if (this.ballImage && !ball.isBullet) {
         const ballSize = ball.radius * 2;
         this.ctx.save();
         this.ctx.translate(ball.x, ball.y);
@@ -1126,13 +1275,33 @@ class FishHunterGame {
         );
         this.ctx.restore();
       }
-      
-      return true;
+    });
+    
+    // 绘制技能效果（子弹和烟雾弹），确保它们在最上面
+    this.balls.forEach(ball => {
+      if (ball.isBullet) {
+        // 绘制子弹
+        this.ctx.save();
+        this.ctx.fillStyle = ball.color;
+        this.ctx.beginPath();
+        this.ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      } else if (ball.isSmoke) {
+        // 绘制烟雾弹
+        this.ctx.save();
+        this.ctx.fillStyle = ball.color;
+        this.ctx.beginPath();
+        this.ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
     });
     
     // 绘制和更新 BOSS
     if (this.bossActive && this.boss) {
       const elapsed = Date.now() - this.boss.startTime;
+      const now = Date.now();
       
       // 左右移动
       this.boss.x = this.canvasWidth / 2 + Math.sin(elapsed * this.boss.frequency) * this.boss.amplitude;
@@ -1140,9 +1309,83 @@ class FishHunterGame {
       // 下落
       this.boss.y += this.boss.speed;
       
-      // 绘制 BOSS
+      // Boss特殊能力
+      if (this.boss.y > 0) {
+        // 每10秒发射10发子弹
+        if (!this.boss.lastShootTime) {
+          this.boss.lastShootTime = now;
+        }
+        if (now - this.boss.lastShootTime > 10000) {
+          // 发射10发子弹
+          for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+              // 检查boss是否仍然存在
+              if (this.boss && this.bossActive) {
+                this.balls.push({
+                  x: this.boss.x,
+                  y: this.boss.y,
+                  radius: 6,
+                  vx: (Math.random() - 0.5) * 2,
+                  vy: 3,
+                  color: '#ff0000',
+                  isBullet: true
+                });
+              }
+            }, i * 200);
+          }
+          this.boss.lastShootTime = now;
+        }
+        
+        // 召唤能力（只有后面3关boss才有）
+        if (this.boss.hasSummonAbility) {
+          if (!this.boss.isSummoning && now - this.boss.lastSummonTime > 5000) {
+            // 开始召唤前，先进入呼吸动画状态
+            this.boss.isSummoning = true;
+            this.boss.summonBreathingStartTime = now;
+          } else if (this.boss.isSummoning) {
+            // 检查呼吸动画是否完成（2秒）
+            if (now - this.boss.summonBreathingStartTime > 2000) {
+              // 呼吸动画完成，开始召唤10条，混合召唤xiaolongxia和zhangyuguai
+              for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                  // 随机选择召唤xiaolongxia或zhangyuguai
+                  const summonType = Math.random() < 0.5 ? 'xiaolongxia' : 'zhangyuguai';
+                  this.addBall(summonType);
+                }, i * 100); // 每100毫秒召唤一条
+              }
+              this.boss.lastSummonTime = now;
+              this.boss.isSummoning = false; // 恢复正常状态
+            }
+          }
+        }
+      }
+      
+      // 绘制 Boss
       this.ctx.save();
       this.ctx.translate(this.boss.x, this.boss.y);
+      
+      // Boss召唤呼吸动画
+      if (this.boss.isSummoning) {
+        const breathingProgress = (now - this.boss.summonBreathingStartTime) / 2000;
+        const breathingScale = 1 + Math.sin(breathingProgress * Math.PI * 4) * 0.05;
+        
+        // 绘制发光光环
+        const glowRadius = this.boss.width / 2 + 20 + Math.sin(breathingProgress * Math.PI * 4) * 10;
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+        gradient.addColorStop(0, 'rgba(255, 165, 0, 0.6)');
+        gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 165, 0, 0)');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fill();
+        this.ctx.restore();
+        
+        // 绘制缩放的Boss
+        this.ctx.scale(breathingScale, breathingScale);
+      }
+      
       this.ctx.drawImage(
         this.boss.image,
         -this.boss.width / 2,
@@ -1307,15 +1550,15 @@ class FishHunterGame {
         
         if (distance < this.boss.width / 2) {
           if (anim.weaponType === 0) {
-            // feidao武器：每次碰撞扣除1点血
+            // feidao武器：普通攻击扣除1点血，长按攻击扣除20点血
             if (!anim.hasHitBoss) {
               anim.hasHitBoss = true;
               
-              // 扣除1点血
-              const hitCount = 1;
+              // 检查是否是长按攻击（有snakePath属性）
+              const hitCount = anim.snakePath ? 20 : 1;
               this.boss.health = Math.max(0, this.boss.health - hitCount);
               
-              // 显示扣除1点血的文字
+              // 显示扣除血的文字
               this.addScoreText(this.boss.x, this.boss.y, `-${hitCount}`, '#ff0000');
               
               if (this.boss.health <= 0) {
@@ -1328,6 +1571,14 @@ class FishHunterGame {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
                 }
+                
+                // 5秒后生成下一个等级的BOSS
+                setTimeout(() => {
+                  this.nextBossLevel++;
+                  if (this.nextBossLevel < 11) {
+                    this.checkBossSpawn();
+                  }
+                }, 5000);
               }
             }
           } else {
@@ -1351,6 +1602,14 @@ class FishHunterGame {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
                 }
+                
+                // 5秒后生成下一个等级的BOSS
+                setTimeout(() => {
+                  this.nextBossLevel++;
+                  if (this.nextBossLevel < 11) {
+                    this.checkBossSpawn();
+                  }
+                }, 5000);
               }
             }
           }
@@ -1389,6 +1648,14 @@ class FishHunterGame {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
                 }
+                
+                // 增加海盗船消灭计数
+                this.haidaoKilled++;
+                
+                // 每消灭3艘海盗船升一级
+                if (this.haidaoKilled % 3 === 0) {
+                  this.playerLevel++;
+                }
               }
             }
           } else {
@@ -1412,6 +1679,14 @@ class FishHunterGame {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
                 }
+                
+                // 增加海盗船消灭计数
+                this.haidaoKilled++;
+                
+                // 每消灭3艘海盗船升一级
+                if (this.haidaoKilled % 3 === 0) {
+                  this.playerLevel++;
+                }
               }
             }
           }
@@ -1419,116 +1694,44 @@ class FishHunterGame {
       }
       
       if (closestBall && minDistance < 20) {
-        this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
-        
-        if (closestBall.ballType === 'jiaxue') {
-          this.totalScore += 1;
-          this.health = Math.min(100, this.health + 10);
-          this.addScoreText(closestBall.x, closestBall.y - 10, '+1', '#ff0000');
-          this.addScoreText(closestBall.x, closestBall.y + 10, '+10', '#00ff00');
-          // 手机震动
-          if (navigator.vibrate) {
-            navigator.vibrate(200);
-          }
-        } else if (closestBall.isXiaolongxia) {
-          this.totalScore += 10;
-          this.fishKilled++;
+        // 检查海怪是否被乌贼怪保护
+        if (!closestBall.protectedByZhangyuguai) { // 只有未被保护的海怪才会被击中
+          this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
           
-          // 更新玩家等级
-          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.totalScore >= this.levelThresholds[i]) {
-              this.playerLevel = i;
-              break;
+          if (closestBall.ballType === 'jiaxue') {
+            this.totalScore += 1;
+            this.health = Math.min(100, this.health + 10);
+            this.addScoreText(closestBall.x, closestBall.y - 10, '+1', '#ff0000');
+            this.addScoreText(closestBall.x, closestBall.y + 10, '+10', '#00ff00');
+            // 手机震动
+            if (navigator.vibrate) {
+              navigator.vibrate(200);
             }
+          } else if (closestBall.isXiaolongxia) {
+            this.totalScore += 10;
+            this.fishKilled++;
+            
+            // 添加得分文字动画
+            this.addScoreText(closestBall.x, closestBall.y, '+10');
+          } else if (closestBall.isZhangyuguai) {
+            this.totalScore += 20;
+            this.fishKilled++;
+            
+            // 添加得分文字动画
+            this.addScoreText(closestBall.x, closestBall.y, '+20');
+          } else if (closestBall.isRedBall) {
+            this.totalScore += 5;
+            this.bigFishKilled++;
+            
+            // 添加得分文字动画
+            this.addScoreText(closestBall.x, closestBall.y, '+5');
+          } else {
+            this.totalScore++;
+            this.fishKilled++;
+            
+            // 添加得分文字动画
+            this.addScoreText(closestBall.x, closestBall.y, '+1');
           }
-          
-          if (this.playerLevel >= 10 && !this.isVictory) {
-            this.isVictory = true;
-            this.isGameOver = true;
-            this.updateHighScore();
-          }
-          
-          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
-          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
-          
-          // 添加得分文字动画
-          this.addScoreText(closestBall.x, closestBall.y, '+10');
-        } else if (closestBall.isZhangyuguai) {
-          this.totalScore += 20;
-          this.fishKilled++;
-          
-          // 更新玩家等级
-          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.totalScore >= this.levelThresholds[i]) {
-              this.playerLevel = i;
-              break;
-            }
-          }
-          
-          if (this.playerLevel >= 10 && !this.isVictory) {
-            this.isVictory = true;
-            this.isGameOver = true;
-            this.updateHighScore();
-          }
-          
-          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
-          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
-          
-          // 添加得分文字动画
-          this.addScoreText(closestBall.x, closestBall.y, '+20');
-        } else if (closestBall.isRedBall) {
-          this.totalScore += 5;
-          this.bigFishKilled++;
-          
-          // 更新玩家等级
-          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.totalScore >= this.levelThresholds[i]) {
-              this.playerLevel = i;
-              break;
-            }
-          }
-          
-          if (this.playerLevel >= 10 && !this.isVictory) {
-            this.isVictory = true;
-            this.isGameOver = true;
-            this.updateHighScore();
-          }
-          
-          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
-          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
-          
-          const requiredPerTrigger = this.bigFishPerLevel[Math.min(this.playerLevel, this.bigFishPerLevel.length - 1)];
-          const currentTriggers = Math.floor(this.bigFishKilled / requiredPerTrigger);
-          
-          if (currentTriggers > this.bigFishTriggers) {
-            this.bigFishTriggers = currentTriggers;
-          }
-          
-          // 添加得分文字动画
-          this.addScoreText(closestBall.x, closestBall.y, '+5');
-        } else {
-          this.totalScore++;
-          this.fishKilled++;
-          
-          // 更新玩家等级
-          for (let i = this.levelThresholds.length - 1; i >= 0; i--) {
-            if (this.totalScore >= this.levelThresholds[i]) {
-              this.playerLevel = i;
-              break;
-            }
-          }
-          
-          if (this.playerLevel >= 10 && !this.isVictory) {
-            this.isVictory = true;
-            this.isGameOver = true;
-            this.updateHighScore();
-          }
-          
-          // 根据等级设置冷却时间 (0级1000ms, 每级减100ms, 9级100ms)
-          this.shootCooldown = Math.max(100, 1000 - this.playerLevel * 100);
-          
-          // 添加得分文字动画
-          this.addScoreText(closestBall.x, closestBall.y, '+1');
         }
       }
       
@@ -1578,6 +1781,9 @@ class FishHunterGame {
     this.updateScoreTexts();
     this.drawScoreTexts();
     
+    // 检查是否生成boss
+    this.checkBossSpawn();
+    
     requestAnimationFrame(() => this.runAnimationLoop());
   }
   
@@ -1613,25 +1819,17 @@ class FishHunterGame {
   }
   
   checkBossSpawn() {
-    if (this.playerLevel < 3 || this.playerLevel >= 11 || this.bossActive) {
+    if (!this.bossSpawnEnabled || this.nextBossLevel < 3 || this.nextBossLevel >= 11 || this.bossActive) {
       return false;
     }
     
-    if (this.bossAppearedForLevel.has(this.playerLevel)) {
+    if (this.bossAppearedForLevel.has(this.nextBossLevel)) {
       return false;
     }
     
-    const currentThreshold = this.levelThresholds[this.playerLevel];
-    const nextThreshold = this.levelThresholds[this.playerLevel + 1];
-    const scoreDiff = nextThreshold - currentThreshold;
-    const bossSpawnThreshold = currentThreshold + scoreDiff * 0.9;
-    
-    if (this.totalScore >= bossSpawnThreshold) {
-      this.spawnBoss();
-      return true;
-    }
-    
-    return false;
+    // 只要到达3级及以上，就按照等级顺序生成BOSS
+    this.spawnBossByLevel(this.nextBossLevel);
+    return true;
   }
   
   checkHaidaoSpawn() {
@@ -1657,33 +1855,43 @@ class FishHunterGame {
   }
   
   spawnBoss() {
+    this.spawnBossByLevel(this.nextBossLevel);
+  }
+  
+  spawnBossByLevel(level) {
     let bossImage;
-    if (this.playerLevel === 3) {
+    if (level === 3) {
       bossImage = this.boss3Image;
-    } else if (this.playerLevel === 4) {
+    } else if (level === 4) {
       bossImage = this.boss4Image;
-    } else if (this.playerLevel === 5) {
+    } else if (level === 5) {
       bossImage = this.boss5Image;
-    } else if (this.playerLevel === 6) {
+    } else if (level === 6) {
       bossImage = this.boss6Image;
-    } else if (this.playerLevel === 7) {
+    } else if (level === 7) {
       bossImage = this.boss7Image;
-    } else if (this.playerLevel === 8) {
+    } else if (level === 8) {
       bossImage = this.boss8Image;
-    } else if (this.playerLevel === 9) {
+    } else if (level === 9) {
       bossImage = this.boss9Image;
-    } else if (this.playerLevel === 10) {
-      bossImage = this.boss11Image;
+    } else if (level === 10) {
+      bossImage = this.boss10Image; // 使用 boss10 替代不存在的 boss11
     } else {
       bossImage = this.boss10Image;
     }
     
     const bossSize = 100;
     let bossHealth;
-    if (this.playerLevel === 3) {
-      bossHealth = 20; // 3→4级 20次
+    let hasSummonAbility = false;
+    
+    // 前面5关boss（第3-7关）血量80，只有发射子弹能力
+    // 后面3关boss（第8-10关）血量120，有发射子弹和召唤能力
+    if (level >= 3 && level <= 7) {
+      bossHealth = 80;
+      hasSummonAbility = false;
     } else {
-      bossHealth = 20 + (this.playerLevel - 3) * 20; // 每级+20次
+      bossHealth = 120;
+      hasSummonAbility = true;
     }
     
     this.boss = {
@@ -1698,11 +1906,17 @@ class FishHunterGame {
       amplitude: 100,
       frequency: 0.005,
       startTime: Date.now(),
-      image: bossImage
+      image: bossImage,
+      lastShootTime: Date.now(),
+      lastSummonTime: Date.now(),
+      isSummoning: false,
+      summonBreathingStartTime: 0,
+      hasSummonAbility: hasSummonAbility,
+      level: level // 记录当前BOSS的等级
     };
     
     this.bossActive = true;
-    this.bossAppearedForLevel.add(this.playerLevel);
+    this.bossAppearedForLevel.add(level);
     
     if (this.bossAudio) {
       this.bossAudio.currentTime = 0;
@@ -1755,19 +1969,12 @@ class FishHunterGame {
   }
   
   selectWeapon(weaponIndex) {
-    if (weaponIndex === 1 && this.playerLevel < 3) {
-      console.log('武器2需要3级解锁');
-      return;
-    }
     this.selectedWeapon = weaponIndex;
     console.log('武器已切换到:', weaponIndex);
   }
-
+  
   isWeaponUnlocked(weaponIndex) {
-    if (weaponIndex === 1) {
-      return this.playerLevel >= 3;
-    }
-    return true;
+    return true; // 所有武器都默认解锁
   }
   
   getCurrentWeaponImage() {

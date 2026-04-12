@@ -64,6 +64,35 @@
       z-index: 100;
     }
     
+    #weaponOptions {
+      position: fixed;
+      top: 70px;
+      left: calc(50% - 50px);
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+      z-index: 101;
+    }
+    
+    #weaponOptions img {
+      width: 50px;
+      height: 50px;
+      margin: 5px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      border-radius: 4px;
+    }
+    
+    #weaponOptions img:hover {
+      border-color: #FFD700;
+    }
+    
+    #weaponOptions img.selected {
+      border-color: #00FF00;
+    }
+    
     #instructionBtn {
       position: fixed;
       top: 10px;
@@ -150,46 +179,31 @@
       z-index: 201;
     }
     
-    #weaponOptions {
+    #gameTitle {
       position: fixed;
-      top: 70px;
-      left: calc(50% - 50px);
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 8px;
-      padding: 10px;
-      display: none;
-      z-index: 101;
-    }
-    
-    #weaponOptions img {
-      width: 50px;
-      height: 50px;
-      margin: 5px;
-      cursor: pointer;
-      border: 2px solid transparent;
-      border-radius: 4px;
-    }
-    
-    #weaponOptions img:hover {
-      border-color: #FFD700;
-    }
-    
-    #weaponOptions img.selected {
-      border-color: #00FF00;
+      top: 10px;
+      left: 80px;
+      color: #FFD700;
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      z-index: 99;
+      text-align: left;
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
   <div class="loading" id="loading">加载中...</div>
   <canvas id="gameCanvas"></canvas>
+  <div id="gameTitle">船头大乱斗</div>
   <div id="instructionBtn"></div>
   <div id="weaponSelector"></div>
   <div id="weaponOptions">
-    <img src="images/feidao1.png" data-weapon="0" alt="武器1">
-    <img src="images/yucha2.png" data-weapon="1" alt="武器2">
-    <img src="images/feidao2.png" data-weapon="2" alt="武器3">
-    <img src="images/yucha.png" data-weapon="3" alt="武器4">
+    <img src="images/feidao1.png" data-weapon="0" alt="飞刀1">
+    <img src="images/yucha.png" data-weapon="1" alt="鱼叉1">
+    <img src="images/feidao2.png" data-weapon="2" alt="飞刀2">
+    <img src="images/yucha2.png" data-weapon="3" alt="鱼叉2">
   </div>
   <div id="logControl">导出日志</div>
   <div id="instructionPanel">
@@ -203,9 +217,9 @@
       <p>合理安排时间，享受健康生活。</p>
       
       <h2>一.手势介绍</h2>
-      <p>1.单指滑动：发射武器</p>
-      <p>2.双指滑动：多发武器同时发射，从船头射向敌人</p>
-      <p>3.长按：大杀伤性发射</p>
+      <p>1. 单指滑动：发射武器------------------------------左键单击</p>
+      <p>2. 双指滑动：多发武器同时发射，从船头射向敌人--左键双击</p>
+      <p>3. 长按：大杀伤性发射------------------------------右键单击</p>
       
       <h2>二.海怪介绍</h2>
       <p>1.飞鱼怪，没有攻击力，击杀得1分</p>
@@ -232,39 +246,29 @@
     const weaponOptions = document.getElementById('weaponOptions');
     const weaponImages = weaponOptions.querySelectorAll('img');
     
-    function updateWeaponSelectorState() {
-      weaponSelector.style.opacity = '1';
-      weaponSelector.style.filter = 'none';
-      weaponSelector.title = '';
+    // 初始化武器选择器
+    function updateWeaponOptions() {
+      if (window.game) {
+        weaponImages.forEach(img => {
+          const weaponIndex = parseInt(img.dataset.weapon);
+          if (window.game.isWeaponUnlocked(weaponIndex)) {
+            img.style.display = 'inline-block';
+          } else {
+            img.style.display = 'none';
+          }
+        });
+      }
     }
     
     weaponSelector.addEventListener('click', function() {
+      updateWeaponOptions();
       weaponOptions.style.display = weaponOptions.style.display === 'block' ? 'none' : 'block';
-      updateWeaponLockState();
     });
-    
-    function updateWeaponLockState() {
-      weaponImages.forEach(img => {
-        img.style.opacity = '1';
-        img.style.filter = 'none';
-        img.title = '';
-      });
-    }
-    
-    // 初始化状态
-    updateWeaponSelectorState();
-    updateWeaponLockState();
-    
-    // 定期检查等级变化
-    setInterval(updateWeaponSelectorState, 1000);
     
     weaponImages.forEach(img => {
       img.addEventListener('click', function() {
         const weaponIndex = parseInt(this.dataset.weapon);
         if (window.game) {
-          if (!window.game.isWeaponUnlocked(weaponIndex)) {
-            return;
-          }
           window.game.selectWeapon(weaponIndex);
         }
         weaponImages.forEach(i => i.classList.remove('selected'));
