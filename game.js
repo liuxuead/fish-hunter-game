@@ -67,7 +67,8 @@ class FishHunterGame {
     this.bigFishTriggers = 0;
     this.bigFishNextTarget = 0;
     
-    this.playerLevel = 0;
+    this.playerLevel = 3;
+    this.lastPlayerLevel = 3; // 用于检测等级变化
     this.levelThresholds = [0, 10, 50, 100, 200, 400, 600, 900, 1300, 1600, 2000];
     this.bigFishPerLevel = [3, 4, 4, 8, 8, 10, 10, 15, 15, 20, 20];
     this.bigFishCurrentTarget = 0;
@@ -113,8 +114,7 @@ class FishHunterGame {
     this.instructionCloseBtnRect = null;
     
     // 海盗船系统
-    this.haidao = null;
-    this.haidaoActive = false;
+    this.haidaos = []; // 支持多艘海盗船同时存在
     this.haidaoAppearedForLevel = new Set();
     this.haidaoKilled = 0; // 记录消灭的海盗船数量
     
@@ -130,7 +130,7 @@ class FishHunterGame {
       dazhaoRechargeRate: 100 / 20, // 20秒补满
       changanRechargeRate: 100 / 40, // 40秒补满
       dazhaoCost: 20, // 每次使用消耗20
-      changanCost: 50 // 每次使用消耗50
+      changanCost: 33 // 每次使用消耗1/3
     };
     this.lastEnergyUpdateTime = Date.now();
     
@@ -149,9 +149,15 @@ class FishHunterGame {
       this.bindEvents();
       this.runAnimationLoop();
       
+      // 输出初始等级信息
+      console.log('🎮 游戏开始 - 当前玩家等级:', this.playerLevel);
+      console.log('🎮 下一个BOSS等级:', this.nextBossLevel);
+      console.log('🎮 BOSS生成状态:', this.bossSpawnEnabled);
+      
       // 5秒后生成第一个boss
       setTimeout(() => {
         this.bossSpawnEnabled = true;
+        console.log('⏰ 5秒后开始生成BOSS...');
         this.checkBossSpawn();
       }, 5000);
     });
@@ -656,8 +662,11 @@ class FishHunterGame {
     
     if (isDoubleClick) {
       // 双击鼠标左键触发大招
-      this.handleTwoFingerSwipe();
-      return;
+      if (this.energyBar.dazhao >= this.energyBar.dazhaoCost) {
+        this.handleTwoFingerSwipe();
+        return;
+      }
+      // 能量不足时，继续执行单击逻辑
     }
     
     this.isDrawing = true;
@@ -1162,9 +1171,6 @@ class FishHunterGame {
             };
             
             this.balls.push(smokeBall);
-            
-            // 调试：输出烟雾弹的速度和方向
-            console.log('烟雾弹发射:', { vx, vy, targetX: targetBall.x, targetY: targetBall.y, currentX: ball.x, currentY: ball.y });
           }
         }
       }
@@ -1429,53 +1435,175 @@ class FishHunterGame {
     }
     
     // 绘制和更新海盗船
-    if (this.haidaoActive && this.haidao) {
-      const elapsed = Date.now() - this.haidao.startTime;
+    this.haidaos.forEach((haidao, index) => {
+      const elapsed = Date.now() - haidao.startTime;
       const now = Date.now();
       
       // 左右移动
-      this.haidao.x = this.canvasWidth / 2 + Math.sin(elapsed * this.haidao.frequency) * this.haidao.amplitude;
+      haidao.x = this.canvasWidth / 2 + Math.sin(elapsed * haidao.frequency) * haidao.amplitude;
       
-      // 下落
-      this.haidao.y += this.haidao.speed;
+      // 上下移动
+      haidao.y = this.canvasHeight / 4 + Math.sin(elapsed * haidao.frequency * 0.8) * 50;
+      
+      // 确保海盗船不会超出屏幕上半部分
+      if (haidao.y > this.canvasHeight / 2) {
+        haidao.y = this.canvasHeight / 2;
+      }
+      if (haidao.y < 50) {
+        haidao.y = 50;
+      }
       
       // 海盗船特殊动作
-      if (now - this.haidao.lastActionTime > 3000) {
-        this.haidao.lastActionTime = now;
-        if (this.haidao.type === 'flash') {
-          // 闪现
-          this.haidao.x = Math.random() * (this.canvasWidth - this.haidao.width) + this.haidao.width / 2;
-        } else if (this.haidao.type === 'summon') {
-          // 召唤敌人
-          for (let i = 0; i < 3; i++) {
-            this.addBall();
+      if (haidao.type === 'summon') {
+        // 召唤海盗船的召唤动画
+        if (!haidao.isSummoning && now - haidao.lastActionTime > 3000) {
+          // 开始召唤前，先进入呼吸动画状态
+          haidao.isSummoning = true;
+          haidao.summonBreathingStartTime = now;
+        } else if (haidao.isSummoning) {
+          // 检查呼吸动画是否完成（2秒）
+          if (now - haidao.summonBreathingStartTime > 2000) {
+            // 呼吸动画完成，开始召唤3条海怪
+            for (let i = 0; i < 3; i++) {
+              setTimeout(() => {
+                // 检查海盗船是否仍然存在
+                const existingHaidao = this.haidaos.find(h => h.id === haidao.id);
+                if (existingHaidao) {
+                  this.addBall();
+                }
+              }, i * 100); // 每100毫秒召唤一条
+            }
+            haidao.lastActionTime = now;
+            haidao.isSummoning = false; // 恢复正常状态
           }
+        }
+      } else if (now - haidao.lastActionTime > 3000) {
+        haidao.lastActionTime = now;
+        if (haidao.type === 'flash') {
+          // 闪现
+          haidao.x = Math.random() * (this.canvasWidth - haidao.width) + haidao.width / 2;
+          // 闪现时随机设置y坐标，确保在屏幕上半部分
+          haidao.y = Math.random() * (this.canvasHeight / 2 - haidao.height) + haidao.height / 2;
+        }
+      }
+      
+      // 闪现海盗船发射子弹
+      if (haidao.type === 'flash') {
+        if (!haidao.lastShootTime) {
+          haidao.lastShootTime = now;
+        }
+        if (now - haidao.lastShootTime > 30000) { // 每30秒发射一次
+          // 发射10发子弹
+          for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+              // 检查海盗船是否仍然存在
+              const existingHaidao = this.haidaos.find(h => h.id === haidao.id);
+              if (existingHaidao) {
+                this.balls.push({
+                  x: haidao.x,
+                  y: haidao.y + 20,
+                  radius: 6, // 与小龙虾一致的大小
+                  vx: (Math.random() - 0.5) * 2, // 随机水平方向，与BOSS一致
+                  vy: 3, // 垂直速度，与BOSS一致
+                  color: '#ff4444', // 与小龙虾一致的颜色
+                  isBullet: true
+                });
+              }
+            }, i * 200); // 每200毫秒发射一发
+          }
+          haidao.lastShootTime = now;
+        }
+      }
+      
+      // 防御海盗船特殊逻辑
+      if (haidao.type === 'defense') {
+        // 防御值耗尽后切换到普通形态
+        if (haidao.defense <= 0 && haidao.image === this.haidaoImage2) {
+          haidao.image = this.haidaoImage3;
+        }
+        
+        // 每隔20秒给其他海盗船+10点血
+        if (!haidao.isHealing && now - haidao.lastHealTime > 20000) {
+          // 开始加血，闪烁3秒红光
+          haidao.isHealing = true;
+          haidao.healStartTime = now;
+        } else if (haidao.isHealing && now - haidao.healStartTime > 3000) {
+          // 3秒闪烁完成，给其他海盗船+10点血
+          this.haidaos.forEach(otherHaidao => {
+            if (otherHaidao.id !== haidao.id) {
+              otherHaidao.health = Math.min(otherHaidao.maxHealth, otherHaidao.health + 10);
+            }
+          });
+          haidao.isHealing = false;
+          haidao.lastHealTime = now;
         }
       }
       
       // 绘制海盗船
       this.ctx.save();
-      this.ctx.translate(this.haidao.x, this.haidao.y);
+      this.ctx.translate(haidao.x, haidao.y);
+      
+      // 召唤呼吸动画
+      if (haidao.isSummoning) {
+        const breathingProgress = (now - haidao.summonBreathingStartTime) / 2000;
+        const breathingScale = 1 + Math.sin(breathingProgress * Math.PI * 4) * 0.05; // 4次呼吸，振幅5%
+        
+        // 绘制发光光环
+        const glowRadius = haidao.width / 2 + 20 + Math.sin(breathingProgress * Math.PI * 4) * 10;
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+        gradient.addColorStop(0, 'rgba(255, 165, 0, 0.6)');
+        gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 165, 0, 0)');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fill();
+        this.ctx.restore();
+        
+        // 绘制缩放的海盗船
+        this.ctx.scale(breathingScale, breathingScale);
+      }
+      
+      // 加血闪烁红光动画
+      if (haidao.isHealing) {
+        const healingProgress = (now - haidao.healStartTime) / 3000;
+        const flashIntensity = Math.sin(healingProgress * Math.PI * 6) * 0.5 + 0.5; // 6次闪烁
+        
+        // 绘制红光光环
+        const glowRadius = haidao.width / 2 + 30 + Math.sin(healingProgress * Math.PI * 6) * 15;
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+        const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+        gradient.addColorStop(0, `rgba(255, 0, 0, ${0.6 + flashIntensity * 0.4})`);
+        gradient.addColorStop(0.5, `rgba(255, 0, 0, ${0.3 + flashIntensity * 0.2})`);
+        gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+      
       this.ctx.drawImage(
-        this.haidao.image,
-        -this.haidao.width / 2,
-        -this.haidao.height / 2,
-        this.haidao.width,
-        this.haidao.height
+        haidao.image,
+        -haidao.width / 2,
+        -haidao.height / 2,
+        haidao.width,
+        haidao.height
       );
       this.ctx.restore();
       
       // 绘制海盗船血条
-      const healthBarWidth = this.haidao.width;
+      const healthBarWidth = haidao.width;
       const healthBarHeight = 10;
-      const healthBarX = this.haidao.x - healthBarWidth / 2;
-      const healthBarY = this.haidao.y - this.haidao.height / 2 - 20;
+      const healthBarX = haidao.x - healthBarWidth / 2;
+      const healthBarY = haidao.y - haidao.height / 2 - 20;
       
       this.ctx.save();
       this.ctx.fillStyle = '#333333';
       this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
       
-      const healthPercentage = this.haidao.health / this.haidao.maxHealth;
+      const healthPercentage = haidao.health / haidao.maxHealth;
       this.ctx.fillStyle = healthPercentage > 0.5 ? '#00ff00' : healthPercentage > 0.2 ? '#ffff00' : '#ff0000';
       this.ctx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercentage, healthBarHeight);
       
@@ -1484,10 +1612,31 @@ class FishHunterGame {
       this.ctx.strokeRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
       this.ctx.restore();
       
+      // 绘制防御海盗船的防御条
+      if (haidao.type === 'defense' && haidao.defense > 0) {
+        const defenseBarWidth = haidao.width;
+        const defenseBarHeight = 5;
+        const defenseBarX = haidao.x - defenseBarWidth / 2;
+        const defenseBarY = haidao.y - haidao.height / 2 - 35;
+        
+        this.ctx.save();
+        this.ctx.fillStyle = '#333333';
+        this.ctx.fillRect(defenseBarX, defenseBarY, defenseBarWidth, defenseBarHeight);
+        
+        const defensePercentage = haidao.defense / 100; // 防御值最大值为100
+        this.ctx.fillStyle = '#00ffff'; // 青色
+        this.ctx.fillRect(defenseBarX, defenseBarY, defenseBarWidth * defensePercentage, defenseBarHeight);
+        
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(defenseBarX, defenseBarY, defenseBarWidth, defenseBarHeight);
+        this.ctx.restore();
+      }
+      
       // 检测海盗船是否逃出屏幕
-      if (this.haidao.y > this.canvasHeight + this.haidao.height) {
-        this.haidao = null;
-        this.haidaoActive = false;
+      if (haidao.y > this.canvasHeight + haidao.height) {
+        // 移除逃出屏幕的海盗船
+        this.haidaos.splice(index, 1);
         if (this.bossAudio) {
           this.bossAudio.pause();
           this.bossAudio.currentTime = 0;
@@ -1496,7 +1645,7 @@ class FishHunterGame {
         this.isGameOver = true;
         this.updateHighScore();
       }
-    }
+    });
     
     this.animations = this.animations.filter(anim => {
       const elapsed = now - anim.startTime;
@@ -1549,7 +1698,7 @@ class FishHunterGame {
         const distance = Math.sqrt((headX - bossCenterX) ** 2 + (headY - bossCenterY) ** 2);
         
         if (distance < this.boss.width / 2) {
-          if (anim.weaponType === 0) {
+          if (anim.weaponType === 0 || anim.weaponType === 2) {
             // feidao武器：普通攻击扣除1点血，长按攻击扣除20点血
             if (!anim.hasHitBoss) {
               anim.hasHitBoss = true;
@@ -1577,6 +1726,9 @@ class FishHunterGame {
                   this.nextBossLevel++;
                   if (this.nextBossLevel < 11) {
                     this.checkBossSpawn();
+                  } else {
+                    // 击败第10个BOSS后，提升到11级，准备生成海盗船
+                    this.playerLevel = 11;
                   }
                 }, 5000);
               }
@@ -1608,6 +1760,9 @@ class FishHunterGame {
                   this.nextBossLevel++;
                   if (this.nextBossLevel < 11) {
                     this.checkBossSpawn();
+                  } else {
+                    // 击败第10个BOSS后，提升到11级，准备生成海盗船
+                    this.playerLevel = 11;
                   }
                 }, 5000);
               }
@@ -1617,33 +1772,45 @@ class FishHunterGame {
       }
       
       // 检测是否击中海盗船
-      if (this.haidaoActive && this.haidao) {
+      this.haidaos.forEach((haidao, haidaoIndex) => {
         const headX = currentX + Math.cos(anim.angle - Math.PI / 2) * (imgHeight / 2);
         const headY = currentY + Math.sin(anim.angle - Math.PI / 2) * (imgHeight / 2);
         
-        const haidaoCenterX = this.haidao.x;
-        const haidaoCenterY = this.haidao.y;
+        const haidaoCenterX = haidao.x;
+        const haidaoCenterY = haidao.y;
         const distance = Math.sqrt((headX - haidaoCenterX) ** 2 + (headY - haidaoCenterY) ** 2);
         
-        if (distance < this.haidao.width / 2) {
-          if (anim.weaponType === 0) {
+        if (distance < haidao.width / 2) {
+          if (anim.weaponType === 0 || anim.weaponType === 2) {
             // feidao武器：从开始碰撞到结束直接算作20次击中
             if (!anim.hasHitHaidao) {
               anim.hasHitHaidao = true;
               
-              // 直接扣除20点血
-              const hitCount = 20;
-              this.haidao.health = Math.max(0, this.haidao.health - hitCount);
+              // 检查是否是防御海盗船且有防御值
+              let hitCount = 20;
+              if (haidao.type === 'defense' && haidao.defense > 0) {
+                // 先消耗防御值
+                const defenseDamage = Math.min(haidao.defense, hitCount);
+                haidao.defense -= defenseDamage;
+                hitCount -= defenseDamage;
+                
+                // 显示扣除防御值的文字
+                this.addScoreText(haidao.x, haidao.y, `-${defenseDamage}防`, '#00ffff');
+              }
               
-              // 显示扣除20点血的文字
-              this.addScoreText(this.haidao.x, this.haidao.y, `-${hitCount}`, '#ff0000');
+              // 扣除剩余的血量
+              if (hitCount > 0) {
+                haidao.health = Math.max(0, haidao.health - hitCount);
+                // 显示扣除血量的文字
+                this.addScoreText(haidao.x, haidao.y, `-${hitCount}`, '#ff0000');
+              }
               
-              if (this.haidao.health <= 0) {
-                const haidaoScore = this.haidao.maxHealth;
+              if (haidao.health <= 0) {
+                const haidaoScore = haidao.maxHealth;
                 this.totalScore += haidaoScore;
-                this.addScoreText(this.haidao.x, this.haidao.y - 20, `+${haidaoScore}`, '#00ff00');
-                this.haidao = null;
-                this.haidaoActive = false;
+                this.addScoreText(haidao.x, haidao.y - 20, `+${haidaoScore}`, '#00ff00');
+                // 移除被消灭的海盗船
+                this.haidaos.splice(haidaoIndex, 1);
                 if (this.bossAudio) {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
@@ -1663,18 +1830,26 @@ class FishHunterGame {
             if (!anim.hasHitHaidao) {
               anim.hasHitHaidao = true;
               
-              // 扣除1点血
-              this.haidao.health = Math.max(0, this.haidao.health - 1);
+              // 检查是否是防御海盗船且有防御值
+              let damage = 1;
+              if (haidao.type === 'defense' && haidao.defense > 0) {
+                // 先消耗防御值
+                haidao.defense = Math.max(0, haidao.defense - damage);
+                // 显示扣除防御值的文字
+                this.addScoreText(haidao.x, haidao.y, '-1防', '#00ffff');
+              } else {
+                // 扣除血量
+                haidao.health = Math.max(0, haidao.health - damage);
+                // 显示扣除血量的文字
+                this.addScoreText(haidao.x, haidao.y, '-1', '#ff0000');
+              }
               
-              // 显示扣除1点血的文字
-              this.addScoreText(this.haidao.x, this.haidao.y, '-1', '#ff0000');
-              
-              if (this.haidao.health <= 0) {
-                const haidaoScore = this.haidao.maxHealth;
+              if (haidao.health <= 0) {
+                const haidaoScore = haidao.maxHealth;
                 this.totalScore += haidaoScore;
-                this.addScoreText(this.haidao.x, this.haidao.y - 20, `+${haidaoScore}`, '#00ff00');
-                this.haidao = null;
-                this.haidaoActive = false;
+                this.addScoreText(haidao.x, haidao.y - 20, `+${haidaoScore}`, '#00ff00');
+                // 移除被消灭的海盗船
+                this.haidaos.splice(haidaoIndex, 1);
                 if (this.bossAudio) {
                   this.bossAudio.pause();
                   this.bossAudio.currentTime = 0;
@@ -1691,7 +1866,7 @@ class FishHunterGame {
             }
           }
         }
-      }
+      });
       
       if (closestBall && minDistance < 20) {
         // 检查海怪是否被乌贼怪保护
@@ -1784,6 +1959,17 @@ class FishHunterGame {
     // 检查是否生成boss
     this.checkBossSpawn();
     
+    // 检测等级变化并输出日志
+    if (this.playerLevel !== this.lastPlayerLevel) {
+      console.log('等级变化: 从', this.lastPlayerLevel, '级提升到', this.playerLevel, '级');
+      this.lastPlayerLevel = this.playerLevel;
+      
+      // 当等级达到11级时，输出海盗船生成提示
+      if (this.playerLevel === 11) {
+        console.log('🎉 等级达到11级，开始生成海盗船！');
+      }
+    }
+    
     requestAnimationFrame(() => this.runAnimationLoop());
   }
   
@@ -1833,21 +2019,24 @@ class FishHunterGame {
   }
   
   checkHaidaoSpawn() {
-    if (this.playerLevel < 11 || this.haidaoActive || this.bossActive) {
+    if (this.playerLevel < 11 || this.bossActive) {
+      if (this.playerLevel >= 11) {
+        console.log('海盗船生成条件不满足: 活跃BOSS:', this.bossActive);
+      }
       return false;
     }
     
-    if (this.haidaoAppearedForLevel.has(this.playerLevel)) {
+    // 最多同时存在3艘海盗船
+    if (this.haidaos.length >= 3) {
+      console.log('海盗船生成条件不满足: 已达到最大数量(3艘)');
       return false;
     }
     
-    const currentThreshold = this.levelThresholds[this.playerLevel];
-    const nextThreshold = this.levelThresholds[this.playerLevel + 1] || currentThreshold + 500;
-    const scoreDiff = nextThreshold - currentThreshold;
-    const haidaoSpawnThreshold = currentThreshold + scoreDiff * 0.9;
-    
-    if (this.totalScore >= haidaoSpawnThreshold) {
+    // 每10秒尝试生成一次海盗船
+    if (!this.lastHaidaoSpawnTime || Date.now() - this.lastHaidaoSpawnTime > 10000) {
+      console.log('生成海盗船...');
       this.spawnHaidao();
+      this.lastHaidaoSpawnTime = Date.now();
       return true;
     }
     
@@ -1918,6 +2107,10 @@ class FishHunterGame {
     this.bossActive = true;
     this.bossAppearedForLevel.add(level);
     
+    // 输出BOSS生成日志
+    console.log('👾 BOSS生成: 等级', level, 'BOSS出现！');
+    console.log('👾 BOSS属性: 血量', bossHealth, '召唤能力:', hasSummonAbility);
+    
     if (this.bossAudio) {
       this.bossAudio.currentTime = 0;
       this.bossAudio.play().catch(e => console.log('Boss音频播放失败:', e));
@@ -1928,8 +2121,7 @@ class FishHunterGame {
     const haidaoTypes = [
       { image: this.haidaoImage, type: 'flash' },
       { image: this.haidaoImage1, type: 'summon' },
-      { image: this.haidaoImage2, type: 'defense' },
-      { image: this.haidaoImage3, type: 'flash' }
+      { image: this.haidaoImage2, type: 'defense' }
     ];
     
     const randomType = haidaoTypes[Math.floor(Math.random() * haidaoTypes.length)];
@@ -1939,15 +2131,24 @@ class FishHunterGame {
     if (!haidaoImage) return;
     
     const haidaoSize = 150;
-    const haidaoHealth = 200 + (this.playerLevel - 11) * 50;
+    let haidaoHealth = 200 + (this.playerLevel - 11) * 50;
+    let defense = 0;
     
-    this.haidao = {
+    // 防御海盗船拥有更高的血量和防御点数
+    if (haidaoType === 'defense') {
+      haidaoHealth = 300 + (this.playerLevel - 11) * 75; // 更高的血量
+      defense = 100; // 防御点数
+    }
+    
+    const newHaidao = {
+      id: Date.now() + Math.random(), // 唯一ID
       x: this.canvasWidth / 2,
-      y: -haidaoSize,
+      y: this.canvasHeight / 4, // 生成时直接在屏幕上方1/2处
       width: haidaoSize,
       height: haidaoSize,
       health: haidaoHealth,
       maxHealth: haidaoHealth,
+      defense: defense,
       speed: this.canvasHeight / 9000,
       direction: 1,
       amplitude: 150,
@@ -1956,10 +2157,12 @@ class FishHunterGame {
       startTime: Date.now(),
       actionTimer: 0,
       lastActionTime: Date.now(),
+      lastHealTime: Date.now(), // 用于加血功能
+      lastShootTime: Date.now(), // 用于闪现海盗船发射子弹
       image: haidaoImage
     };
     
-    this.haidaoActive = true;
+    this.haidaos.push(newHaidao);
     this.haidaoAppearedForLevel.add(this.playerLevel);
     
     if (this.bossAudio) {
@@ -1988,7 +2191,8 @@ class FishHunterGame {
     this.fishKilled = 0;
     this.bigFishKilled = 0;
     this.bigFishTriggers = 0;
-    this.playerLevel = 0;
+    this.playerLevel = 3;
+    this.lastPlayerLevel = 3; // 重置等级变化检测
     this.balls = [];
     this.animations = [];
     this.scoreTexts = [];
@@ -2201,13 +2405,16 @@ class FishHunterGame {
   }
   
   restartGame() {
+    const selectedWeapon = this.selectedWeapon; // 保存当前选择的武器
+    
     this.isGameOver = false;
     this.isVictory = false;
     this.health = this.maxHealth;
     this.score = 9;
     this.totalScore = 0;
-    this.playerLevel = 0;
-    this.selectedWeapon = 0;
+    this.playerLevel = 3;
+    this.lastPlayerLevel = 3; // 重置等级变化检测
+    this.selectedWeapon = selectedWeapon; // 保持之前选择的武器
     this.balls = [];
     this.animations = [];
     this.bigFishKilled = 0;
@@ -2216,6 +2423,10 @@ class FishHunterGame {
     this.boss = null;
     this.bossActive = false;
     this.bossAppearedForLevel.clear();
+    // 重置海盗船系统
+    this.haidaos = [];
+    this.haidaoAppearedForLevel.clear();
+    this.haidaoKilled = 0;
     this.shootCooldown = 1000;
     // 重置能量条为补满状态
     this.energyBar.dazhao = 100;
