@@ -1187,7 +1187,7 @@ class FishHunterGame {
       if (ball.y > this.canvasHeight || ball.x < 0 || ball.x > this.canvasWidth) {
         if (ball.isRedBall && !ball.isSmoke) {
           this.health -= 5;
-        } else if (!ball.isBullet && !ball.isSmoke) {
+        } else if (!ball.isSmoke) {
           this.health -= 1;
         }
         
@@ -1463,8 +1463,8 @@ class FishHunterGame {
         } else if (haidao.isSummoning) {
           // 检查呼吸动画是否完成（2秒）
           if (now - haidao.summonBreathingStartTime > 2000) {
-            // 呼吸动画完成，开始召唤3条海怪
-            for (let i = 0; i < 3; i++) {
+            // 呼吸动画完成，开始召唤10条海怪
+            for (let i = 0; i < 10; i++) {
               setTimeout(() => {
                 // 检查海盗船是否仍然存在
                 const existingHaidao = this.haidaos.find(h => h.id === haidao.id);
