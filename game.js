@@ -297,67 +297,54 @@ class FishHunterGame {
     } else if (ballType === 'zhangyuguai') {
       radius = 15 * 2;
     }
-    const minDistance = 30; // 减小最小距离，让更多怪物可以同时存在
-    const maxAttempts = 200; // 增加最大尝试次数，提高生成成功率
-    const minAngleDiff = 3 * Math.PI / 180; // 减小最小角度差，让怪物可以更密集地生成
+    const minDistance = 20; // 减小最小距离，让更多怪物可以同时存在
+    const maxAttempts = 50; // 减少最大尝试次数，提高性能
+    const minAngleDiff = 2 * Math.PI / 180; // 减小最小角度差，让怪物可以更密集地生成
     
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const x = radius + Math.random() * (this.canvasWidth - radius * 2);
-      const y = radius + Math.random() * (this.canvasHeight / 2 - radius * 2);
+    // 快速生成位置，减少计算量
+    const x = radius + Math.random() * (this.canvasWidth - radius * 2);
+    const y = radius + Math.random() * (this.canvasHeight / 2 - radius * 2);
+    
+    // 简化碰撞检测，只检查最近的几个球
+    let valid = true;
+    const nearbyBalls = this.balls.filter(ball => {
+      const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
+      return dist < 100; // 只检查100像素内的球
+    });
+    
+    for (const ball of nearbyBalls) {
+      const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
+      if (dist < minDistance) {
+        valid = false;
+        break;
+      }
+    }
+    
+    if (valid) {
+      this.balls.push({
+        x,
+        y,
+        radius,
+        id: Date.now() + Math.random(),
+        angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
+        speed: this.getFishSpeed(),
+        ballType: ballType,
+        isRedBall: ballType === 'red',
+        isXiaolongxia: ballType === 'xiaolongxia',
+        isZhangyuguai: ballType === 'zhangyuguai',
+        isJiaxue: ballType === 'jiaxue',
+        shootTimer: 0,
+        smokeTimer: 0
+      });
       
-      let valid = true;
-      
-      for (const ball of this.balls) {
-        const dist = Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2);
-        if (dist < minDistance) {
-          valid = false;
-          break;
-        }
+      if (this.bubbleAudio) {
+        this.bubbleAudio.currentTime = 0;
+        this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
       }
       
-      if (!valid) continue;
-      
-      const newAngle = Math.atan2(y - this.originY, x - this.originX);
-      
-      for (const ball of this.balls) {
-        const ballAngle = Math.atan2(ball.y - this.originY, ball.x - this.originX);
-        let angleDiff = Math.abs(newAngle - ballAngle);
-        if (angleDiff > Math.PI) {
-          angleDiff = 2 * Math.PI - angleDiff;
-        }
-        if (angleDiff < minAngleDiff) {
-          valid = false;
-          break;
-        }
-      }
-      
-      if (valid) {
-        this.balls.push({
-          x,
-          y,
-          radius,
-          id: Date.now() + Math.random(),
-          angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
-          speed: this.getFishSpeed(),
-          ballType: ballType,
-          isRedBall: ballType === 'red',
-          isXiaolongxia: ballType === 'xiaolongxia',
-          isZhangyuguai: ballType === 'zhangyuguai',
-          isJiaxue: ballType === 'jiaxue',
-          shootTimer: 0,
-          smokeTimer: 0
-        });
-        
-        if (this.bubbleAudio) {
-          this.bubbleAudio.currentTime = 0;
-          this.bubbleAudio.play().catch(e => console.log('气泡音效播放失败:', e));
-        }
-        
-        if (!this.animationRunning) {
-          this.animationRunning = true;
-          this.runAnimationLoop();
-        }
-        return;
+      if (!this.animationRunning) {
+        this.animationRunning = true;
+        this.runAnimationLoop();
       }
     }
   }
@@ -1354,9 +1341,35 @@ class FishHunterGame {
               // 呼吸动画完成，开始召唤10条，混合召唤xiaolongxia和zhangyuguai
               for (let i = 0; i < 10; i++) {
                 setTimeout(() => {
-                  // 随机选择召唤xiaolongxia或zhangyuguai
-                  const summonType = Math.random() < 0.5 ? 'xiaolongxia' : 'zhangyuguai';
-                  this.addBall(summonType);
+                  // 快速生成海怪，避免性能问题
+                  if (this.boss && this.bossActive) {
+                    const summonType = Math.random() < 0.5 ? 'xiaolongxia' : 'zhangyuguai';
+                    let radius = 15;
+                    if (summonType === 'xiaolongxia') {
+                      radius = 15 * 1.5;
+                    } else if (summonType === 'zhangyuguai') {
+                      radius = 15 * 2;
+                    }
+                    
+                    const x = radius + Math.random() * (this.canvasWidth - radius * 2);
+                    const y = radius + Math.random() * (this.canvasHeight / 2 - radius * 2);
+                    
+                    this.balls.push({
+                      x,
+                      y,
+                      radius,
+                      id: Date.now() + Math.random(),
+                      angle: Math.atan2(this.originY - y, this.originX - x) + Math.PI / 2,
+                      speed: this.getFishSpeed(),
+                      ballType: summonType,
+                      isRedBall: false,
+                      isXiaolongxia: summonType === 'xiaolongxia',
+                      isZhangyuguai: summonType === 'zhangyuguai',
+                      isJiaxue: false,
+                      shootTimer: 0,
+                      smokeTimer: 0
+                    });
+                  }
                 }, i * 100); // 每100毫秒召唤一条
               }
               this.boss.lastSummonTime = now;
