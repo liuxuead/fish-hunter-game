@@ -118,7 +118,7 @@ class FishHunterGame {
     this.haidaoAppearedForLevel = new Set();
     this.haidaoKilled = 0; // 记录消灭的海盗船数量
     
-    this.shootCooldown = 1000;
+    this.shootCooldown = 100;
     this.lastShootTime = 0;
     
     // 能量条系统
@@ -1892,8 +1892,8 @@ class FishHunterGame {
       });
       
       if (closestBall && minDistance < 20) {
-        // 检查海怪是否被乌贼怪保护
-        if (!closestBall.protectedByZhangyuguai) { // 只有未被保护的海怪才会被击中
+        // 检查海怪是否被乌贼怪保护，且不是子弹
+        if (!closestBall.protectedByZhangyuguai && !closestBall.isBullet) { // 只有未被保护的海怪才会被击中，子弹不会被拦截
           this.balls = this.balls.filter(ball => ball.id !== closestBall.id);
           
           if (closestBall.ballType === 'jiaxue') {
@@ -2450,7 +2450,7 @@ class FishHunterGame {
     this.haidaos = [];
     this.haidaoAppearedForLevel.clear();
     this.haidaoKilled = 0;
-    this.shootCooldown = 1000;
+    this.shootCooldown = 100;
     // 重置能量条为补满状态
     this.energyBar.dazhao = 100;
     this.energyBar.changan = 100;
